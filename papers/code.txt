@@ -1,0 +1,35 @@
+Using deep learning and Kalman filter for OD prediction:
+https://github.com/alzmxx/OD_Prediction/tree/master?tab=readme-ov-file
+
+[ECMLPKDD21] Countrywide Origin-Destination Matrix Prediction and Its Application for COVID-19
+https://github.com/deepkashiwa20/ODCRN/tree/main
+
+A series of scripts to calculate an origin-destination matrix across a study area using OpenTripPlanner.
+https://github.com/jeromemayaud/OpenTripPlanner-OD-matrix
+
+(UK) Scripts to conver the National Trip Ends Model (NTEM) into an Origin-Destination (OD) Matrix
+https://github.com/ITSLeeds/NTEM2OD
+
+This is an experimental version aimed at finding the optimal path flows through systematic mapping of variables, including zonal totals, OD flows, and link flows. (calibrating origin-destination matrix estimation using link traffic counts)
+https://github.com/Taehooie/CGODME
+
+A dictionary where,
+key: transit stop id according to shp file
+value: estimated demand
+https://github.com/Jaiaid/od_matrix_estimation
+
+Using ARCGIS Desktop 10.8, calculate origin destination cost matrix.
+https://github.com/Oufattole/Origin-Destination-Cost-Matrix
+
+Generate OD Demand from StreetLight Platform: Input your Taffic Analysis Zone shapefile
+https://github.com/CakeBnut1996/StreetLight-OD-Matrix-Validation
+
+Google Distance Matrix API: Provides travel distance and time for a matrix of origins and destinations (Ruby imp)
+https://github.com/soylent/google-apis-distance_matrix
+https://github.com/nisengweregis/distance_and_duration_calculation
+
+Origin-destination matrix estimation by deep learning using maps
+https://github.com/danyelkoca/OD
+
+Implement of Origin-Destination Matrix Prediction via Graph Convolution: a New Perspective of Passenger Demand Modeling
+https://github.com/gonglucky/GEML-Origin-Destination-Matrix-Prediction-via-Graph-Convolution
