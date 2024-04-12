@@ -84,6 +84,10 @@
   <data key="d1">7736</data>
 </edge>
 <edge source="Debrecen" target="div_point_Debrecen_Nyíregyháza" id="0">
+  <data key="d0">M35</data>
+  <data key="d1">10875</data>
+</edge>
+<edge source="Debrecen" target="div_point_Debrecen_Nyíregyháza" id="1">
   <data key="d0">35</data>
   <data key="d1">3380</data>
 </edge>
