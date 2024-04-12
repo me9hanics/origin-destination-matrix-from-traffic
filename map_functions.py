@@ -53,7 +53,7 @@ def plot_map_simple(G, pos, node_names=None):
                     )
         ax.text(text_pos[0], text_pos[1], edge_text, fontsize=10, ha='center')
 
-    if node_names:
+    if node_names: #Probably redundant, just in case
         nx.draw_networkx_labels(G, pos, labels=node_names)
     else:
         nx.draw_networkx_labels(G, pos)
