@@ -1,7 +1,8 @@
-/lib
-/data_gathering.py
-/KSH*
+/__pycache__
+
 /ideas
 /papers
+/data_gathering.py
+/KSH*
 /other methods for comparison
 /*keys*
