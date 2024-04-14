@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import geopandas as gpd
 import matplotlib.pyplot as plt
 import networkx as nx
 
@@ -30,6 +31,7 @@ def road_data_dict_from_OD(origin_destination_tuple_list, roads_ids, dataframe):
     return road_data
 
 ######## Plotting functions ########
+
 def plot_map_simple(G, pos, node_names=None):
     plt.figure(figsize=(15, 10))
     nx.draw_networkx_nodes(G, pos, node_color='skyblue', label='Cities')
@@ -60,3 +62,23 @@ def plot_map_simple(G, pos, node_names=None):
 
     plt.axis('off')
     plt.show()
+
+######## Road combining functions ########
+
+def combine_roads_total_simple(gdf):
+    gdf_new = gpd.GeoDataFrame(columns=['kszam', 'min_traffic', 'min_5_traffic', 'max_traffic', 'max_5_traffic', 'avg_traffic','geometry', 'data_df', 'data_json'])
+    kszam_values = gdf['kszam'].unique()
+    for road_name in kszam_values:
+        instances = gdf[gdf['kszam'] == road_name]
+        gdf_new.loc[len(gdf_new)] = {
+            'kszam': road_name,
+            'min_traffic': instances['anf'].min(),
+            'min_5_traffic': np.sort(instances['anf'])[5] if len(instances) > 5 else None,
+            'max_traffic': instances['anf'].max(),
+            'max_5_traffic': np.sort(instances['anf'])[-5] if len(instances) > 5 else None,
+            'avg_traffic': instances['anf'].mean(),
+            'geometry': instances.unary_union,
+            'data_df': instances,
+            'data_json': instances.to_json()
+        }
+    return gdf_new
