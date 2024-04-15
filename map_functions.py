@@ -91,7 +91,7 @@ def instance_list_to_gdf(instance_list):
     gdf = gpd.GeoDataFrame(instance_list)
     return gdf
 
-def route_roadchain_reordering(route_df):
+def route_road_chain_reordering(route_df): #maybe add a silent=True parameter
     #Basically, instances are not in order, but we can order them as they are connected. 
     #One could create a "chain graph", or just a simple "linked" list. I choose the latter, even though I adore the first more.
     #Another idea is sorting.
@@ -135,11 +135,11 @@ def route_roadchain_reordering(route_df):
             elif i1 == 0 and i2 != 0: #Assuming i2 is the end
                 group2.append(road)
                 group2.extend(group1)
-                chain_groups.remove(group2)
+                chain_groups.remove(group1)
             elif i1 != 0 and i2 == 0: #Assuming i1 is the end
                 group1.append(road)
                 group1.extend(group2)
-                chain_groups.remove(group1)
+                chain_groups.remove(group2)
             elif i1 != 0 and i2 != 0: #Assuming both are the end
                 group2.reverse()
                 group1.append(road)
