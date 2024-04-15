@@ -63,7 +63,7 @@ def plot_map_simple(G, pos, node_names=None):
     plt.axis('off')
     plt.show()
 
-######## Road combining functions ########
+######## Road combining/splitting/reordering functions ########
 
 def combine_roads_total_simple(gdf):
     gdf_new = gpd.GeoDataFrame(columns=['kszam', 'min_traffic', 'min_5_traffic', 'max_traffic', 'max_5_traffic', 'avg_traffic','geometry', 'data_df', 'data_json'])
@@ -82,3 +82,80 @@ def combine_roads_total_simple(gdf):
             'data_json': instances.to_json()
         }
     return gdf_new
+
+def instance_list_to_df(instance_list):
+    df = pd.DataFrame(instance_list)
+    return df
+
+def instance_list_to_gdf(instance_list):
+    gdf = gpd.GeoDataFrame(instance_list)
+    return gdf
+
+def route_roadchain_reordering(route_df):
+    #Basically, instances are not in order, but we can order them as they are connected. 
+    #One could create a "chain graph", or just a simple "linked" list. I choose the latter, even though I adore the first more.
+    #Another idea is sorting.
+
+    #Assuming that no input route is a "cycle"
+    chain_groups = [] #List of groups
+    for t, road in route_df.iterrows():
+        road_geom = (road['geometry'])
+        touches = []
+        for g in (range(len(chain_groups))): #We pass through all existing groups
+            group = chain_groups[g]
+            for i in range(len(group)): #Check if the road touches any of the roads in the group
+                chain_road_geo = group[i]['geometry']
+                if road_geom.touches(chain_road_geo):
+                    touches.append((g, i))
+
+        if len(touches) == 0:
+            #Add new group
+            chain_groups.append([road])
+        elif len(touches) == 1:
+            group = chain_groups[touches[0][0]]
+            i = touches[0][1] #This should be either the beginning, or the end.
+            if i == 0:
+                group.insert(0, road)
+            else: #Assuming the new road is connected to the end road, theoretically it cannot be connected to a road in the middle of the group
+                if i != len(group)-1:
+                    print(f"Instance {t}: Road touches a road in the middle of the group. This is not expected.")
+                group.append(road)
+
+        elif len(touches) == 2: #We assume two groups are both touched: we merge them
+            group1 = chain_groups[touches[0][0]]
+            group2 = chain_groups[touches[1][0]]
+            i1 = touches[0][1]
+            i2 = touches[1][1]
+            if i1 == 0 and i2 == 0:
+                #Reverse group1, put the element at the end of group1 and append group2 to group1
+                group1.reverse()
+                group1.append(road)
+                group1.extend(group2)
+                chain_groups.remove(group2)
+            elif i1 == 0 and i2 != 0: #Assuming i2 is the end
+                group2.append(road)
+                group2.extend(group1)
+                chain_groups.remove(group2)
+            elif i1 != 0 and i2 == 0: #Assuming i1 is the end
+                group1.append(road)
+                group1.extend(group2)
+                chain_groups.remove(group1)
+            elif i1 != 0 and i2 != 0: #Assuming both are the end
+                group2.reverse()
+                group1.append(road)
+                group1.extend(group2)
+                chain_groups.remove(group2)
+        else:
+            print("Road touches more than 2 groups. This is not expected.")
+            print(touches), print(road)
+
+    #Post-algorithm analysis
+    if np.sum([len(group) for group in chain_groups]) != len(route_df):
+        print("Not all roads are in the groups. Missing roads:")
+        print(set(route_df['id']) - set([road['id'] for group in chain_groups for road in group]))
+
+    return chain_groups
+
+def split_route_by_locations(route_instances, location_long_lat_pairs, split__range=0.2):
+    #TODO
+    pass
