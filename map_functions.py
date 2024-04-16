@@ -221,7 +221,7 @@ def plot_map_simple(G, pos, node_names=None):
     plt.axis('off')
     plt.show()
 
-def plot_road_traffic_with_given_locations(road_gdf,location_lat_long_pairs, location_radius=0.1):
+def plot_road_traffic_with_given_locations(road_gdf,location_lat_long_pairs, location_radius=0.1, title = None):
     #Important assumption: the road must be ordered (chain-like, see route_road_chain_reordering)
     #Also, assuming the location_lat_long_pairs are given in WGS84 format
     #Basically, we take the ordered road, check which part of the road is closest to the given location, 
@@ -258,9 +258,11 @@ def plot_road_traffic_with_given_locations(road_gdf,location_lat_long_pairs, loc
 
     cmap = colors.ListedColormap(plt.cm.Set3.colors)
     for i, (loc, segment_data) in enumerate(location_min_distance_segment.items()):
-        segment = road_gdf.iloc[segment_data['segment_order']]
+        #segment = road_gdf.iloc[segment_data['segment_order']]
         color = cmap(i % cmap.N)  #Likely never more than 12 locations, but just in case
-        plt.axvspan(segment_data['segment_order']*(1-location_radius), segment_data['segment_order']*(1+location_radius), color=color, alpha=0.3, label=loc)
+        plt.axvspan(segment_data['segment_order']-location_radius*len(road_gdf), segment_data['segment_order']+location_radius*len(road_gdf), color=color, alpha=0.3, label=loc)
 
+    if title:
+        plt.title(title)
     plt.legend()
     plt.show()
