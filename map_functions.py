@@ -91,14 +91,14 @@ def instance_list_to_gdf(instance_list):
     gdf = gpd.GeoDataFrame(instance_list)
     return gdf
 
-def route_road_chain_reordering(route_df): #maybe add a silent=True parameter
+def route_road_chain_reordering(route_gdf): #maybe add a silent=True parameter
     #Basically, instances are not in order, but we can order them as they are connected. 
     #One could create a "chain graph", or just a simple "linked" list. I choose the latter, even though I adore the first more.
     #Another idea is sorting.
 
     #Assuming that no input route is a "cycle"
     chain_groups = [] #List of groups
-    for t, road in route_df.iterrows():
+    for t, road in route_gdf.iterrows():
         road_geom = (road['geometry'])
         touches = []
         for g in (range(len(chain_groups))): #We pass through all existing groups
@@ -122,8 +122,10 @@ def route_road_chain_reordering(route_df): #maybe add a silent=True parameter
                 group.append(road)
 
         elif len(touches) == 2: #We assume two groups are both touched: we merge them
-            group1 = chain_groups[touches[0][0]]
-            group2 = chain_groups[touches[1][0]]
+            index1 = touches[0][0]
+            index2 = touches[1][0]
+            group1 = chain_groups[index1]
+            group2 = chain_groups[index2]
             i1 = touches[0][1]
             i2 = touches[1][1]
             if i1 == 0 and i2 == 0:
@@ -131,28 +133,28 @@ def route_road_chain_reordering(route_df): #maybe add a silent=True parameter
                 group1.reverse()
                 group1.append(road)
                 group1.extend(group2)
-                chain_groups.remove(group2)
+                chain_groups.pop(index2) #Delete group2 (it's now connected with group1)
             elif i1 == 0 and i2 != 0: #Assuming i2 is the end
                 group2.append(road)
                 group2.extend(group1)
-                chain_groups.remove(group1)
+                chain_groups.pop(index1)
             elif i1 != 0 and i2 == 0: #Assuming i1 is the end
                 group1.append(road)
                 group1.extend(group2)
-                chain_groups.remove(group2)
+                chain_groups.pop(index2)
             elif i1 != 0 and i2 != 0: #Assuming both are the end
                 group2.reverse()
                 group1.append(road)
                 group1.extend(group2)
-                chain_groups.remove(group2)
+                chain_groups.pop(index2)
         else:
             print("Road touches more than 2 groups. This is not expected.")
             print(touches), print(road)
 
     #Post-algorithm analysis
-    if np.sum([len(group) for group in chain_groups]) != len(route_df):
+    if np.sum([len(group) for group in chain_groups]) != len(route_gdf):
         print("Not all roads are in the groups. Missing roads:")
-        print(set(route_df['id']) - set([road['id'] for group in chain_groups for road in group]))
+        print(set(route_gdf['id']) - set([road['id'] for group in chain_groups for road in group]))
 
     return chain_groups
 
