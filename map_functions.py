@@ -2,6 +2,8 @@ import numpy as np
 import pandas as pd
 import geopandas as gpd
 import matplotlib.pyplot as plt
+#import json
+#import geojson
 import networkx as nx
 
 ######## Network creation functions ########
@@ -157,6 +159,43 @@ def route_road_chain_reordering(route_gdf): #maybe add a silent=True parameter
         print(set(route_gdf['id']) - set([road['id'] for group in chain_groups for road in group]))
 
     return chain_groups
+
+def reorder_full_gdf(gdf):
+    #Warning: potential issue: when ran for the whole dataframe, previously, I got 3 non-obvious empty copying warnings (+1 obvious one, the first)
+    #FutureWarning: The behavior of DataFrame concatenation with empty or all-NA entries is deprecated. In a future version, this will no longer exclude empty or all-NA columns when determining the result dtypes. To retain the old behavior, exclude the relevant entries before the concat operation.
+    gdf_reordered = gpd.GeoDataFrame(columns=gdf.columns)
+    for name in gdf['kszam'].unique():
+        road_segments = gdf[(gdf['kszam'] == name) & (gdf['pkod']!='2')]
+        connected_ordered_groups = route_road_chain_reordering(road_segments)
+        for group in connected_ordered_groups:
+            gdf_reordered = pd.concat([gdf_reordered, instance_list_to_gdf(group)], ignore_index=True)
+    return gdf_reordered
+
+def reorder_full_gdf_groupindexed(gdf):
+    gdf_reordered = gpd.GeoDataFrame(columns=list(gdf.columns) + ['group'])
+    for name in gdf['kszam'].unique():
+        road_segments = gdf[(gdf['kszam'] == name) & (gdf['pkod']!='2')]
+        connected_ordered_groups = route_road_chain_reordering(road_segments)
+        for i in range(len(connected_ordered_groups)):
+            group = connected_ordered_groups[i]
+            gdf_group = instance_list_to_gdf(group)
+            gdf_group['group'] = i
+            gdf_reordered = pd.concat([gdf_reordered, gdf_group], ignore_index=True)
+    return gdf_reordered
+
+def create_ordered_roads_json(gdf):
+    roads_ordered = {}
+    for name in gdf['kszam'].unique():
+        road_segments = gdf[(gdf['kszam'] == name) & (gdf['pkod']!='2')]
+        roads_ordered[name] = []
+        connected_ordered_groups = route_road_chain_reordering(road_segments)
+        for component in connected_ordered_groups:
+            component_ = []
+            for segment in component:
+                dict_segment = segment.to_dict()
+                component_.append(dict_segment)
+            roads_ordered[name].append(component_)
+    return roads_ordered
 
 def split_route_by_locations(route_instances, location_long_lat_pairs, split__range=0.2):
     #TODO
