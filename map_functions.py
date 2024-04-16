@@ -164,6 +164,23 @@ def reorder_full_gdf_groupindexed(gdf, exclude_direction = True):
             gdf_reordered = pd.concat([gdf_reordered, gdf_group], ignore_index=True)
     return gdf_reordered
 
+def create_ordered_gdf_list_from_road_names(gdf, road_name_list, exclude_direction = True):
+    gdf_list = []
+    for road_name in road_name_list:
+        road_segments = gdf[(gdf['kszam'] == road_name)]
+        if exclude_direction:
+            road_segments = road_segments[road_segments['pkod']!='2']
+        connected_ordered_groups = route_road_chain_reordering(road_segments)
+        gdf_road = gpd.GeoDataFrame(columns=list(gdf.columns)+['group'])
+        for i in range(len(connected_ordered_groups)):
+            group = connected_ordered_groups[i]
+            gdf_group = instance_list_to_gdf(group)
+            gdf_group['group'] = i
+            gdf_group.set_crs(gdf.crs, inplace=True) #Set CRS
+            gdf_road = pd.concat([gdf_road, gdf_group], ignore_index=True)
+        gdf_list.append(gdf_road)
+    return gdf_list
+
 def create_ordered_roads_json(gdf, exclude_direction = True):
     roads_ordered = {}
     for name in gdf['kszam'].unique():
@@ -256,11 +273,12 @@ def plot_road_traffic_with_given_locations(road_gdf,location_lat_long_pairs, loc
     #Plot the traffic on each segment, with spans for the locations
     plt.plot(list(range(len(road_gdf))),road_gdf['anf'],  label='Traffic')
 
-    cmap = colors.ListedColormap(plt.cm.Set3.colors)
+    cmap = colors.ListedColormap(plt.cm.Set3.colors).reversed()
     for i, (loc, segment_data) in enumerate(location_min_distance_segment.items()):
         #segment = road_gdf.iloc[segment_data['segment_order']]
         color = cmap(i % cmap.N)  #Likely never more than 12 locations, but just in case
         plt.axvspan(segment_data['segment_order']-location_radius*len(road_gdf), segment_data['segment_order']+location_radius*len(road_gdf), color=color, alpha=0.3, label=loc)
+        plt.axvline(x=segment_data['segment_order'], color='darkgrey', linestyle='--')
 
     if title:
         plt.title(title)
