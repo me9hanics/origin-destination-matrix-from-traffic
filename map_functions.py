@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 import geopandas as gpd
 import matplotlib.pyplot as plt
+import matplotlib.colors as colors
 #import json
 #import geojson
 import networkx as nx
@@ -32,39 +33,6 @@ def road_data_dict_from_OD(origin_destination_tuple_list, roads_ids, dataframe):
             road_data[(origin, destination)].append(road_dict)
     return road_data
 
-######## Plotting functions ########
-
-def plot_map_simple(G, pos, node_names=None):
-    plt.figure(figsize=(15, 10))
-    nx.draw_networkx_nodes(G, pos, node_color='skyblue', label='Cities')
-
-    #Taken from https://stackoverflow.com/a/60638452/19626271
-    ax = plt.gca()
-    for u, v, key, data in G.edges(keys=True, data=True):
-        weight =  int(data['weight']) #"{:.2f}".format(data['weight'])
-        edge_text = f"{data['name']}: {weight}"
-        start_pos = pos[u]; end_pos = pos[v]
-        text_pos = ((start_pos[0] + end_pos[0]) / 2 + 0.1*key-0.05, (start_pos[1] + end_pos[1]) / 2+ 0.1*key-0.05)
-        ax.annotate("",
-                    xy=end_pos, xycoords='data',
-                    xytext=start_pos, textcoords='data',
-                    arrowprops=dict(arrowstyle="-", color="0.5",
-                                    shrinkA=5, shrinkB=5,
-                                    patchA=None, patchB=None,
-                                    connectionstyle="arc3,rad=rrr".replace('rrr',str(0.3*key)
-                                    ),
-                                    ),
-                    )
-        ax.text(text_pos[0], text_pos[1], edge_text, fontsize=10, ha='center')
-
-    if node_names: #Probably redundant, just in case
-        nx.draw_networkx_labels(G, pos, labels=node_names)
-    else:
-        nx.draw_networkx_labels(G, pos)
-
-    plt.axis('off')
-    plt.show()
-
 ######## Road combining/splitting/reordering functions ########
 
 def combine_roads_total_simple(gdf):
@@ -84,6 +52,10 @@ def combine_roads_total_simple(gdf):
             'data_json': instances.to_json()
         }
     return gdf_new
+
+def LUT_geopositions(location_list, geoposition_dict):
+    #Subset of location geopositions
+    return {location: geoposition_dict[location] for location in location_list}
 
 def instance_list_to_df(instance_list):
     df = pd.DataFrame(instance_list)
@@ -164,17 +136,21 @@ def reorder_full_gdf(gdf, exclude_direction = True):
     #Warning: potential issue: when ran for the whole dataframe, previously, I got 3 non-obvious empty copying warnings (+1 obvious one, the first)
     #FutureWarning: The behavior of DataFrame concatenation with empty or all-NA entries is deprecated. In a future version, this will no longer exclude empty or all-NA columns when determining the result dtypes. To retain the old behavior, exclude the relevant entries before the concat operation.
     gdf_reordered = gpd.GeoDataFrame(columns=gdf.columns)
+    gdf_reordered.set_crs(gdf.crs, inplace=True) #Set CRS
     for name in gdf['kszam'].unique():
         road_segments = gdf[(gdf['kszam'] == name)]
         if exclude_direction:
             road_segments = road_segments[road_segments['pkod']!='2']
         connected_ordered_groups = route_road_chain_reordering(road_segments)
         for group in connected_ordered_groups:
-            gdf_reordered = pd.concat([gdf_reordered, instance_list_to_gdf(group)], ignore_index=True)
+            gdf_group = instance_list_to_gdf(group)
+            gdf_group.set_crs(gdf.crs, inplace=True) #Set CRS
+            gdf_reordered = pd.concat([gdf_reordered, gdf_group], ignore_index=True)
     return gdf_reordered
 
 def reorder_full_gdf_groupindexed(gdf, exclude_direction = True):
     gdf_reordered = gpd.GeoDataFrame(columns=list(gdf.columns) + ['group'])
+    gdf_reordered.set_crs(gdf.crs, inplace=True) #Set CRS
     for name in gdf['kszam'].unique():
         road_segments = gdf[(gdf['kszam'] == name)]
         if exclude_direction:
@@ -184,6 +160,7 @@ def reorder_full_gdf_groupindexed(gdf, exclude_direction = True):
             group = connected_ordered_groups[i]
             gdf_group = instance_list_to_gdf(group)
             gdf_group['group'] = i
+            gdf_group.set_crs(gdf.crs, inplace=True) #Set CRS
             gdf_reordered = pd.concat([gdf_reordered, gdf_group], ignore_index=True)
     return gdf_reordered
 
@@ -203,6 +180,87 @@ def create_ordered_roads_json(gdf, exclude_direction = True):
             roads_ordered[name].append(component_)
     return roads_ordered
 
-def split_route_by_locations(route_instances, location_long_lat_pairs, split__range=0.2):
+def LUT_geopositions(location_list, geoposition_dict):
+    #Subset of location geopositions
+    return {location: geoposition_dict[location] for location in location_list}
+
+def split_route_by_locations(route_instances, location_lat_long_pairs, split__range=0.2):
     #TODO
     pass
+
+######## Plotting functions ########
+
+def plot_map_simple(G, pos, node_names=None):
+    plt.figure(figsize=(15, 10))
+    nx.draw_networkx_nodes(G, pos, node_color='skyblue', label='Cities')
+
+    #Taken from https://stackoverflow.com/a/60638452/19626271
+    ax = plt.gca()
+    for u, v, key, data in G.edges(keys=True, data=True):
+        weight =  int(data['weight']) #"{:.2f}".format(data['weight'])
+        edge_text = f"{data['name']}: {weight}"
+        start_pos = pos[u]; end_pos = pos[v]
+        text_pos = ((start_pos[0] + end_pos[0]) / 2 + 0.1*key-0.05, (start_pos[1] + end_pos[1]) / 2+ 0.1*key-0.05)
+        ax.annotate("",
+                    xy=end_pos, xycoords='data',
+                    xytext=start_pos, textcoords='data',
+                    arrowprops=dict(arrowstyle="-", color="0.5",
+                                    shrinkA=5, shrinkB=5,
+                                    patchA=None, patchB=None,
+                                    connectionstyle="arc3,rad=rrr".replace('rrr',str(0.3*key)
+                                    ),
+                                    ),
+                    )
+        ax.text(text_pos[0], text_pos[1], edge_text, fontsize=10, ha='center')
+
+    if node_names: #Probably redundant, just in case
+        nx.draw_networkx_labels(G, pos, labels=node_names)
+    else:
+        nx.draw_networkx_labels(G, pos)
+
+    plt.axis('off')
+    plt.show()
+
+def plot_road_traffic_with_given_locations(road_gdf,location_lat_long_pairs, location_radius=0.1):
+    #Important assumption: the road must be ordered (chain-like, see route_road_chain_reordering)
+    #Also, assuming the location_lat_long_pairs are given in WGS84 format
+    #Basically, we take the ordered road, check which part of the road is closest to the given location, 
+    #and plot the traffic data, on it the location closest to the road, as axvspans
+
+    #Turn the location dict into a GeoDataFrame: this way it is easy to transform the 
+    df = pd.DataFrame({
+        'Location': list(location_lat_long_pairs.keys()),
+        'Latitude': [coords[0] for coords in location_lat_long_pairs.values()],
+        'Longitude': [coords[1] for coords in location_lat_long_pairs.values()]
+    })
+    gdf_loc = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df.Longitude, df.Latitude))
+    #Set the CRS to WGS84 (epsg:4326), WorldGeodeticSystem84 is the most common coordinate reference system for lat/lon data
+    gdf_loc.crs = "EPSG:4326" 
+    #Conversion: from WGS84 to the CRS of gdf2
+    gdf_loc = gdf_loc.to_crs(road_gdf.crs) #Now we have the location points in the same CRS as the road
+    #Turn back to dict: faster to access
+    location_point_pairs = dict(zip(gdf_loc['Location'], gdf_loc['geometry']))
+    #Initialize the closest segment and distance for each location
+    location_min_distance_segment = {key: {'segment':0, 'distance': road_gdf['geometry'].iloc[0].distance(value)} for key, value in location_point_pairs.items()}
+
+    #Iterate through the road and find the closest segment to each location
+    for i, (index, row) in enumerate(road_gdf.iterrows()):
+        road_geom = row['geometry']
+        for loc, loc_point in location_point_pairs.items():
+            distance = road_geom.distance(loc_point)
+            if distance < location_min_distance_segment[loc]['distance']:
+                location_min_distance_segment[loc]['segment_order'] = i
+                location_min_distance_segment[loc]['segment_index'] = index
+                location_min_distance_segment[loc]['distance'] = distance
+
+    #Plot the traffic on each segment, with spans for the locations
+    plt.plot(list(range(len(road_gdf))),road_gdf['anf'],  label='Traffic')
+
+    cmap = colors.ListedColormap(plt.cm.Set3.colors)
+    for i, (loc, segment_data) in enumerate(location_min_distance_segment.items()):
+        segment = road_gdf.iloc[segment_data['segment_order']]
+        color = cmap(i % cmap.N)  #Likely never more than 12 locations, but just in case
+        plt.axvspan(segment_data['segment_order']*(1-location_radius), segment_data['segment_order']*(1+location_radius), color=color, alpha=0.3, label=loc)
+
+    plt.legend()
+    plt.show()
