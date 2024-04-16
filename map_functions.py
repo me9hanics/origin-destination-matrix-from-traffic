@@ -57,6 +57,20 @@ def LUT_geopositions(location_list, geoposition_dict):
     #Subset of location geopositions
     return {location: geoposition_dict[location] for location in location_list}
 
+def create_location_gdf_with_crs(location_lat_long_pairs, gdf_crs):
+     #Turn the location dict into a GeoDataFrame: this way it is easy to transform the CRS
+    df = pd.DataFrame({
+        'Location': list(location_lat_long_pairs.keys()),
+        'Latitude': [coords[0] for coords in location_lat_long_pairs.values()],
+        'Longitude': [coords[1] for coords in location_lat_long_pairs.values()]
+    })
+    gdf_loc = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df.Longitude, df.Latitude))
+    #Set the CRS to WGS84 (epsg:4326), WorldGeodeticSystem84 is the most common coordinate reference system for lat/lon data
+    gdf_loc.crs = "EPSG:4326" 
+    #Conversion: from WGS84 to the CRS of gdf2
+    gdf_loc = gdf_loc.to_crs(gdf_crs) #Now we have the location points in the same CRS as the original gdf
+    return gdf_loc
+
 def instance_list_to_df(instance_list):
     df = pd.DataFrame(instance_list)
     return df
@@ -197,10 +211,6 @@ def create_ordered_roads_json(gdf, exclude_direction = True):
             roads_ordered[name].append(component_)
     return roads_ordered
 
-def LUT_geopositions(location_list, geoposition_dict):
-    #Subset of location geopositions
-    return {location: geoposition_dict[location] for location in location_list}
-
 def split_route_by_locations(route_instances, location_lat_long_pairs, split__range=0.2):
     #TODO
     pass
@@ -244,17 +254,8 @@ def plot_road_traffic_with_given_locations(road_gdf,location_lat_long_pairs, loc
     #Basically, we take the ordered road, check which part of the road is closest to the given location, 
     #and plot the traffic data, on it the location closest to the road, as axvspans
 
-    #Turn the location dict into a GeoDataFrame: this way it is easy to transform the 
-    df = pd.DataFrame({
-        'Location': list(location_lat_long_pairs.keys()),
-        'Latitude': [coords[0] for coords in location_lat_long_pairs.values()],
-        'Longitude': [coords[1] for coords in location_lat_long_pairs.values()]
-    })
-    gdf_loc = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df.Longitude, df.Latitude))
-    #Set the CRS to WGS84 (epsg:4326), WorldGeodeticSystem84 is the most common coordinate reference system for lat/lon data
-    gdf_loc.crs = "EPSG:4326" 
-    #Conversion: from WGS84 to the CRS of gdf2
-    gdf_loc = gdf_loc.to_crs(road_gdf.crs) #Now we have the location points in the same CRS as the road
+    #Turn the location dict into a GeoDataFrame: this way it is easy to transform the CRS
+    gdf_loc = create_location_gdf_with_crs(location_lat_long_pairs, road_gdf.crs)
     #Turn back to dict: faster to access
     location_point_pairs = dict(zip(gdf_loc['Location'], gdf_loc['geometry']))
     #Initialize the closest segment and distance for each location
