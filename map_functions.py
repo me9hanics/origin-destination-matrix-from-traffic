@@ -160,21 +160,25 @@ def route_road_chain_reordering(route_gdf): #maybe add a silent=True parameter
 
     return chain_groups
 
-def reorder_full_gdf(gdf):
+def reorder_full_gdf(gdf, exclude_direction = True):
     #Warning: potential issue: when ran for the whole dataframe, previously, I got 3 non-obvious empty copying warnings (+1 obvious one, the first)
     #FutureWarning: The behavior of DataFrame concatenation with empty or all-NA entries is deprecated. In a future version, this will no longer exclude empty or all-NA columns when determining the result dtypes. To retain the old behavior, exclude the relevant entries before the concat operation.
     gdf_reordered = gpd.GeoDataFrame(columns=gdf.columns)
     for name in gdf['kszam'].unique():
-        road_segments = gdf[(gdf['kszam'] == name) & (gdf['pkod']!='2')]
+        road_segments = gdf[(gdf['kszam'] == name)]
+        if exclude_direction:
+            road_segments = road_segments[road_segments['pkod']!='2']
         connected_ordered_groups = route_road_chain_reordering(road_segments)
         for group in connected_ordered_groups:
             gdf_reordered = pd.concat([gdf_reordered, instance_list_to_gdf(group)], ignore_index=True)
     return gdf_reordered
 
-def reorder_full_gdf_groupindexed(gdf):
+def reorder_full_gdf_groupindexed(gdf, exclude_direction = True):
     gdf_reordered = gpd.GeoDataFrame(columns=list(gdf.columns) + ['group'])
     for name in gdf['kszam'].unique():
-        road_segments = gdf[(gdf['kszam'] == name) & (gdf['pkod']!='2')]
+        road_segments = gdf[(gdf['kszam'] == name)]
+        if exclude_direction:
+            road_segments = road_segments[road_segments['pkod']!='2']
         connected_ordered_groups = route_road_chain_reordering(road_segments)
         for i in range(len(connected_ordered_groups)):
             group = connected_ordered_groups[i]
@@ -183,10 +187,12 @@ def reorder_full_gdf_groupindexed(gdf):
             gdf_reordered = pd.concat([gdf_reordered, gdf_group], ignore_index=True)
     return gdf_reordered
 
-def create_ordered_roads_json(gdf):
+def create_ordered_roads_json(gdf, exclude_direction = True):
     roads_ordered = {}
     for name in gdf['kszam'].unique():
-        road_segments = gdf[(gdf['kszam'] == name) & (gdf['pkod']!='2')]
+        road_segments = gdf[(gdf['kszam'] == name)]
+        if exclude_direction:
+            road_segments = road_segments[road_segments['pkod']!='2']
         roads_ordered[name] = []
         connected_ordered_groups = route_road_chain_reordering(road_segments)
         for component in connected_ordered_groups:
