@@ -57,7 +57,7 @@ def LUT_geopositions(location_list, geoposition_dict):
     #Subset of location geopositions
     return {location: geoposition_dict[location] for location in location_list}
 
-def create_location_gdf_with_crs(location_lat_long_pairs, gdf_crs):
+def create_location_gdf_with_crs(location_lat_long_pairs, crs):
      #Turn the location dict into a GeoDataFrame: this way it is easy to transform the CRS
     df = pd.DataFrame({
         'Location': list(location_lat_long_pairs.keys()),
@@ -68,7 +68,7 @@ def create_location_gdf_with_crs(location_lat_long_pairs, gdf_crs):
     #Set the CRS to WGS84 (epsg:4326), WorldGeodeticSystem84 is the most common coordinate reference system for lat/lon data
     gdf_loc.crs = "EPSG:4326" 
     #Conversion: from WGS84 to the CRS of gdf2
-    gdf_loc = gdf_loc.to_crs(gdf_crs) #Now we have the location points in the same CRS as the original gdf
+    gdf_loc = gdf_loc.to_crs(crs) #Now we have the location points in the same CRS as the original gdf
     return gdf_loc
 
 def instance_list_to_df(instance_list):
@@ -259,7 +259,7 @@ def plot_road_traffic_with_given_locations(road_gdf,location_lat_long_pairs, loc
     #Turn back to dict: faster to access
     location_point_pairs = dict(zip(gdf_loc['Location'], gdf_loc['geometry']))
     #Initialize the closest segment and distance for each location
-    location_min_distance_segment = {key: {'segment':0, 'distance': road_gdf['geometry'].iloc[0].distance(value)} for key, value in location_point_pairs.items()}
+    location_min_distance_segment = {key: {'segment_order':0, 'segment_index': road_gdf.iloc[0].name, 'distance': road_gdf['geometry'].iloc[0].distance(value)} for key, value in location_point_pairs.items()}
 
     #Iterate through the road and find the closest segment to each location
     for i, (index, row) in enumerate(road_gdf.iterrows()):
