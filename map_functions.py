@@ -254,6 +254,11 @@ def plot_road_traffic_with_given_locations(road_gdf,location_lat_long_pairs, loc
     #Basically, we take the ordered road, check which part of the road is closest to the given location, 
     #and plot the traffic data, on it the location closest to the road, as axvspans
 
+    #0th step: Check if there are separate groups in the road_gdf
+    if 'group' in road_gdf.columns: #or .keys()
+        if len(road_gdf['group'].unique()) > 1:
+            print("The input has multiple groups, which might require more analysis")
+
     #Turn the location dict into a GeoDataFrame: this way it is easy to transform the CRS
     gdf_loc = create_location_gdf_with_crs(location_lat_long_pairs, road_gdf.crs)
     #Turn back to dict: faster to access
@@ -285,3 +290,47 @@ def plot_road_traffic_with_given_locations(road_gdf,location_lat_long_pairs, loc
         plt.title(title)
     plt.legend()
     plt.show()
+
+def plot_road_traffic_with_given_locations_groups_separately(road_gdf,location_lat_long_pairs, location_radius=0.1, title = None):
+    #Turn the location dict into a GeoDataFrame: this way it is easy to transform the CRS
+    gdf_loc = create_location_gdf_with_crs(location_lat_long_pairs, road_gdf.crs)
+    #Turn back to dict: faster to access
+    location_point_pairs = dict(zip(gdf_loc['Location'], gdf_loc['geometry']))
+    
+    #Take the indexes where the group changes (we assume the order: 0 0 0 0 0 ... 0 1 1 1 ... 1 1 2 2 2...)
+    group_separation_index = [0] + list(road_gdf[road_gdf['group'].diff() != 0].index) + [len(road_gdf)]
+    group_index_limits = list(zip(group_separation_index[:-1], group_separation_index[1:]))
+
+    #Iterate over unique groups
+    for group_num in range(len(road_gdf['group'].unique())):
+        #Subset the DataFrame for the current group
+        road_gdf_group = road_gdf[road_gdf['group'] == group_num]
+        
+        #Initialize the closest segment and distance for each location
+        location_min_distance_segment = {key: {'segment_order':0, 'segment_index': road_gdf_group.iloc[0].name, 'distance': road_gdf_group['geometry'].iloc[0].distance(value)} for key, value in location_point_pairs.items()}
+
+        #Iterate through the road and find the closest segment to each location
+        for row_num, (index, row) in enumerate(road_gdf_group.iterrows()):
+            road_geom = row['geometry']
+            for loc, loc_point in location_point_pairs.items():
+                distance = road_geom.distance(loc_point)
+                if distance < location_min_distance_segment[loc]['distance']:
+                    location_min_distance_segment[loc]['segment_order'] = index
+                    location_min_distance_segment[loc]['segment_index'] = index
+                    location_min_distance_segment[loc]['distance'] = distance
+
+        #Plot the traffic on each segment, with spans for the locations
+        plt.plot(road_gdf_group.index, road_gdf_group['anf'], color='black')
+        
+        cmap = colors.ListedColormap(plt.cm.Set3.colors).reversed()
+        for loc_num, (loc, segment_data) in enumerate(location_min_distance_segment.items()):
+            color = cmap(loc_num % cmap.N)  #Likely never more than 12 locations, but just in case
+            plt.axvspan(segment_data['segment_order']-location_radius*len(road_gdf_group), segment_data['segment_order']+location_radius*len(road_gdf_group), color=color, alpha=0.3, label=loc)
+            plt.axvline(x=segment_data['segment_order'], color='darkgrey', linestyle='--')
+            ymin = road_gdf_group['anf'].min(); ymax = road_gdf_group['anf'].max()
+            plt.text(segment_data['segment_order'], ymin+loc_num*(ymax-ymin)/(len(location_min_distance_segment)), f"dist: {segment_data['distance']:.2f}", rotation=90, verticalalignment='bottom')
+
+        if title:
+            plt.title(f"{title} (Group {group_num})")
+        plt.legend()
+        plt.show()
