@@ -34,6 +34,29 @@ def road_data_dict_from_OD(origin_destination_tuple_list, roads_ids, dataframe):
             road_data[(origin, destination)].append(road_dict)
     return road_data
 
+def process_roads(direct_routes, roads_ids, gdf):
+    import json
+    from copy import deepcopy
+
+    roads_dict = road_data_dict_from_OD(direct_routes, roads_ids, gdf)
+    roads_dict_string = {str(key): value for key, value in roads_dict.items()}
+    roads_simple_dict_string = deepcopy(roads_dict_string)
+    for key, value in roads_simple_dict_string.items():
+        for road in value:
+            del road['road_ids']
+    
+    return roads_dict, roads_dict_string, roads_simple_dict_string
+
+def combine_edges(G):
+    simple_G = nx.Graph()
+    for u, v, data in G.edges(data=True):
+        if simple_G.has_edge(u, v):
+            simple_G[u][v]['weight'] += data['weight']
+            simple_G[u][v]['name'] += "&" + data['name']
+        else:
+            simple_G.add_edge(u, v, name=data['name'], weight=data['weight'])
+    return simple_G
+
 ######## Road combining/splitting/reordering functions ########
 
 def combine_roads_total_simple(gdf):
