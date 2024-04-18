@@ -3,6 +3,7 @@ import pandas as pd
 import geopandas as gpd
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
+from shapely.geometry import Point, MultiPoint, LineString, MultiLineString
 #import json
 #import geojson
 import networkx as nx
@@ -211,11 +212,56 @@ def create_ordered_roads_json(gdf, exclude_direction = True):
             roads_ordered[name].append(component_)
     return roads_ordered
 
+def find_intersections_cross(gdfs):
+    #Find the intersection points
+    intersection_points = []
+    intersection_segments = []
+    for i in range(len(gdfs)):
+        for j in range(i+1, len(gdfs)):
+            for k in range(len(gdfs[i])):
+                for l in range(len(gdfs[j])):
+                    if gdfs[i].geometry.iloc[k].intersects(gdfs[j].geometry.iloc[l]):
+                        intersection_point = gdfs[i].geometry.iloc[k].intersection(gdfs[j].geometry.iloc[l])
+                        if "Point" == intersection_point.geom_type:
+                            intersection_points.append(intersection_point)
+                            intersection_segments.append(((i, k, gdfs[i]['kszam'].iloc[k]), (j, l, gdfs[j]['kszam'].iloc[l])))
+    
+    return intersection_points, intersection_segments
+
+def get_separate_groups(gdf):
+    if 'group' not in gdf.columns:
+        print('No "group" column')
+        return None
+    group_ids = gdf['group'].unique()
+    groups = []
+    for group_id in group_ids:
+        groups.append(gdf[gdf['group'] == group_id])
+        #If given an ordered geodataframe, it should keep order
+    return groups
+
 def split_route_by_locations(route_instances, location_lat_long_pairs, split__range=0.2):
     #TODO
     pass
 
 ######## Plotting functions ########
+
+def plot_roads_and_locations(gdf, geoposition_dict, road_name_list, location_list, with_text = True, fontsize=15):
+    if type(gdf)==list:
+        gdf = pd.concat(gdf)
+    roads_gdf = gdf[gdf['kszam'].isin(road_name_list)]
+    ax=roads_gdf.plot(color='black', linewidth=1)
+    
+    if with_text: #Route's name
+        for _, route_gdf in roads_gdf.groupby('kszam'):
+            plt.text(route_gdf['geometry'].iloc[0].centroid.x, route_gdf['geometry'].iloc[0].centroid.y, route_gdf['kszam'].iloc[0], fontsize=fontsize, color='red')
+
+    loc_gdf = create_location_gdf_with_crs(LUT_geopositions(location_list,geoposition_dict), gdf.crs)
+    loc_gdf.plot(ax=ax, color='red', markersize=20)
+    
+    if with_text: #Location's name
+        for _, location in loc_gdf.iterrows():
+            plt.text(location['geometry'].x, location['geometry'].y, location['Location'], fontsize=fontsize, color='blue')
+    plt.axis('off')
 
 def plot_map_simple(G, pos, node_names=None):
     plt.figure(figsize=(15, 10))
@@ -247,6 +293,38 @@ def plot_map_simple(G, pos, node_names=None):
 
     plt.axis('off')
     plt.show()
+
+def plot_roads_and_locations_intersections(gdfs, geoposition_dict, road_name_list, location_list, with_text = True, fontsize=15, randomize = False):
+    if type(gdfs)==list:
+        gdf = pd.concat(gdfs)
+    else:
+        gdf = gdfs
+        gdfs = [gdfs]
+    roads_gdf = gdf[gdf['kszam'].isin(road_name_list)]
+    ax=roads_gdf.plot(color='black', linewidth=1)
+    
+    if with_text: #Route's name
+        for _, route_gdf in roads_gdf.groupby('kszam'):
+            plt.text(route_gdf['geometry'].iloc[0].centroid.x, route_gdf['geometry'].iloc[0].centroid.y, route_gdf['kszam'].iloc[0], fontsize=fontsize, color='red')
+
+    loc_gdf = create_location_gdf_with_crs(LUT_geopositions(location_list,geoposition_dict), gdf.crs)
+    loc_gdf.plot(ax=ax, color='red', markersize=20)
+    
+    if with_text: #Location's name
+        for _, location in loc_gdf.iterrows():
+            plt.text(location['geometry'].x, location['geometry'].y, location['Location'], fontsize=fontsize, color='blue')
+    
+    #Intersection points across gdframes
+    intersection_points, intersection_segments = find_intersections_cross(gdfs)
+    for point, segment in zip(intersection_points, intersection_segments):
+        plt.plot(*point.xy, 'go')
+        if randomize:
+            d = (np.random.rand(2)-np.array([0.5,0.5]))*0.1
+        else:
+            d = [0,0]
+        plt.text(point.x*(1+d[0]), point.y*(1+d[1]), f'A: {segment[0]}, B: {segment[1]}', fontsize=fontsize, color='green')
+
+    plt.axis('off')
 
 def plot_road_traffic_with_given_locations(road_gdf,location_lat_long_pairs, location_radius=0.1, title = None):
     #Important assumption: the road must be ordered (chain-like, see route_road_chain_reordering)
@@ -328,7 +406,7 @@ def plot_road_traffic_with_given_locations_groups_separately(road_gdf,location_l
             plt.axvspan(segment_data['segment_order']-location_radius*len(road_gdf_group), segment_data['segment_order']+location_radius*len(road_gdf_group), color=color, alpha=0.3, label=loc)
             plt.axvline(x=segment_data['segment_order'], color='darkgrey', linestyle='--')
             ymin = road_gdf_group['anf'].min(); ymax = road_gdf_group['anf'].max()
-            plt.text(segment_data['segment_order'], ymin+loc_num*(ymax-ymin)/(len(location_min_distance_segment)), f"dist: {segment_data['distance']:.2f}", rotation=90, verticalalignment='bottom')
+            plt.text(segment_data['segment_order'], ymin+loc_num*(ymax-ymin)/(len(location_min_distance_segment)), f"{loc_num}. dist: {segment_data['distance']:.2f}", rotation=90, verticalalignment='bottom')
 
         if title:
             plt.title(f"{title} (Group {group_num})")
