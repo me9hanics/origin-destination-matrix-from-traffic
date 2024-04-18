@@ -263,7 +263,7 @@ def plot_roads_and_locations(gdf, geoposition_dict, road_name_list, location_lis
             plt.text(location['geometry'].x, location['geometry'].y, location['Location'], fontsize=fontsize, color='blue')
     plt.axis('off')
 
-def plot_map_simple(G, pos, node_names=None):
+def plot_map_multigraph(G, pos, node_names=None):
     plt.figure(figsize=(15, 10))
     nx.draw_networkx_nodes(G, pos, node_color='skyblue', label='Cities')
 
@@ -294,7 +294,36 @@ def plot_map_simple(G, pos, node_names=None):
     plt.axis('off')
     plt.show()
 
-def plot_roads_and_locations_intersections(gdfs, geoposition_dict, road_name_list, location_list, with_text = True, fontsize=15, randomize = False):
+def plot_map_simple_graph(G, pos, node_names=None):
+    plt.figure(figsize=(15, 10))
+    nx.draw_networkx_nodes(G, pos, node_color='skyblue', label='Cities')
+
+    ax = plt.gca()
+    for u, v, data in G.edges(data=True):
+        weight =  int(data['weight']) #"{:.2f}".format(data['weight'])
+        edge_text = f"{data['name']}: {weight}"
+        start_pos = pos[u]; end_pos = pos[v]
+        text_pos = ((start_pos[0] + end_pos[0]) / 2, (start_pos[1] + end_pos[1]) / 2)
+        ax.annotate("",
+                    xy=end_pos, xycoords='data',
+                    xytext=start_pos, textcoords='data',
+                    arrowprops=dict(arrowstyle="-", color="0.5",
+                                    shrinkA=5, shrinkB=5,
+                                    patchA=None, patchB=None,
+                                    connectionstyle="arc3,rad=0",
+                                    ),
+                    )
+        ax.text(text_pos[0], text_pos[1], edge_text, fontsize=10, ha='center')
+
+    if node_names: #Probably redundant, just in case
+        nx.draw_networkx_labels(G, pos, labels=node_names)
+    else:
+        nx.draw_networkx_labels(G, pos)
+
+    plt.axis('off')
+    plt.show()
+
+def plot_roads_and_locations_intersections(gdfs, geoposition_dict, road_name_list, location_list, with_text = True, fontsize=15, randomize = False, randomize_factor = 0.1):
     if type(gdfs)==list:
         gdf = pd.concat(gdfs)
     else:
@@ -319,7 +348,7 @@ def plot_roads_and_locations_intersections(gdfs, geoposition_dict, road_name_lis
     for point, segment in zip(intersection_points, intersection_segments):
         plt.plot(*point.xy, 'go')
         if randomize:
-            d = (np.random.rand(2)-np.array([0.5,0.5]))*0.1
+            d = (np.random.rand(2)-np.array([0.5,0.5]))*randomize_factor
         else:
             d = [0,0]
         plt.text(point.x*(1+d[0]), point.y*(1+d[1]), f'A: {segment[0]}, B: {segment[1]}', fontsize=fontsize, color='green')
