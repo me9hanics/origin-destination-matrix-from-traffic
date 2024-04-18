@@ -1,0 +1,147 @@
+<?xml version='1.0' encoding='utf-8'?>
+<graphml xmlns="http://graphml.graphdrawing.org/xmlns" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://graphml.graphdrawing.org/xmlns http://graphml.graphdrawing.org/xmlns/1.0/graphml.xsd"><key id="d1" for="edge" attr.name="weight" attr.type="long"/>
+<key id="d0" for="edge" attr.name="name" attr.type="string"/>
+<graph edgedefault="undirected"><node id="Budapest"/>
+<node id="Kecskemét"/>
+<node id="Szolnok"/>
+<node id="div_point_Miskolc_Debrecen"/>
+<node id="Dunaújváros"/>
+<node id="Székesfehérvár"/>
+<node id="Győr"/>
+<node id="Szeged"/>
+<node id="Pécs"/>
+<node id="Szekszárd"/>
+<node id="Debrecen"/>
+<node id="Nyíregyháza"/>
+<node id="div_point_Debrecen_Nyíregyháza"/>
+<node id="Miskolc"/>
+<node id="Siófok"/>
+<node id="Veszprém"/>
+<node id="div_point_Sopron_Szombathely"/>
+<node id="Sopron"/>
+<node id="Szombathely"/>
+<edge source="Budapest" target="Kecskemét">
+  <data key="d0">M5&amp;5</data>
+  <data key="d1">11479</data>
+</edge>
+<edge source="Budapest" target="Szolnok">
+  <data key="d0">M4&amp;4</data>
+  <data key="d1">24663</data>
+</edge>
+<edge source="Budapest" target="div_point_Miskolc_Debrecen">
+  <data key="d0">M3&amp;3</data>
+  <data key="d1">39783</data>
+</edge>
+<edge source="Budapest" target="Dunaújváros">
+  <data key="d0">M6&amp;6</data>
+  <data key="d1">26064</data>
+</edge>
+<edge source="Budapest" target="Székesfehérvár">
+  <data key="d0">M7&amp;7</data>
+  <data key="d1">65054</data>
+</edge>
+<edge source="Budapest" target="Győr">
+  <data key="d0">M1&amp;1</data>
+  <data key="d1">52134</data>
+</edge>
+<edge source="Kecskemét" target="Szeged">
+  <data key="d0">M5&amp;5</data>
+  <data key="d1">45172</data>
+</edge>
+<edge source="Kecskemét" target="Szolnok">
+  <data key="d0">441&amp;44</data>
+  <data key="d1">18807</data>
+</edge>
+<edge source="Kecskemét" target="Dunaújváros">
+  <data key="d0">52</data>
+  <data key="d1">6386</data>
+</edge>
+<edge source="Szolnok" target="Debrecen">
+  <data key="d0">4</data>
+  <data key="d1">6544</data>
+</edge>
+<edge source="div_point_Miskolc_Debrecen" target="Miskolc">
+  <data key="d0">M30&amp;3</data>
+  <data key="d1">23218</data>
+</edge>
+<edge source="div_point_Miskolc_Debrecen" target="div_point_Debrecen_Nyíregyháza">
+  <data key="d0">M3&amp;35</data>
+  <data key="d1">36905</data>
+</edge>
+<edge source="Dunaújváros" target="Szekszárd">
+  <data key="d0">M6&amp;6</data>
+  <data key="d1">16558</data>
+</edge>
+<edge source="Dunaújváros" target="Székesfehérvár">
+  <data key="d0">62</data>
+  <data key="d1">5385</data>
+</edge>
+<edge source="Dunaújváros" target="Siófok">
+  <data key="d0">6_61_64</data>
+  <data key="d1">4562</data>
+</edge>
+<edge source="Székesfehérvár" target="Siófok">
+  <data key="d0">M7&amp;7</data>
+  <data key="d1">38232</data>
+</edge>
+<edge source="Székesfehérvár" target="Győr">
+  <data key="d0">81</data>
+  <data key="d1">8263</data>
+</edge>
+<edge source="Székesfehérvár" target="Veszprém">
+  <data key="d0">8</data>
+  <data key="d1">13132</data>
+</edge>
+<edge source="Győr" target="div_point_Sopron_Szombathely">
+  <data key="d0">M85&amp;85</data>
+  <data key="d1">22395</data>
+</edge>
+<edge source="Győr" target="Veszprém">
+  <data key="d0">82</data>
+  <data key="d1">3759</data>
+</edge>
+<edge source="Szeged" target="Pécs">
+  <data key="d0">55_56_57&amp;55_56_M60</data>
+  <data key="d1">3910</data>
+</edge>
+<edge source="Szeged" target="Szekszárd">
+  <data key="d0">55_56</data>
+  <data key="d1">4100</data>
+</edge>
+<edge source="Pécs" target="Szekszárd">
+  <data key="d0">M6&amp;6</data>
+  <data key="d1">17482</data>
+</edge>
+<edge source="Debrecen" target="Nyíregyháza">
+  <data key="d0">4</data>
+  <data key="d1">7736</data>
+</edge>
+<edge source="Debrecen" target="div_point_Debrecen_Nyíregyháza">
+  <data key="d0">M35&amp;35</data>
+  <data key="d1">14255</data>
+</edge>
+<edge source="Nyíregyháza" target="Miskolc">
+  <data key="d0">37_38</data>
+  <data key="d1">5154</data>
+</edge>
+<edge source="Nyíregyháza" target="div_point_Debrecen_Nyíregyháza">
+  <data key="d0">M3</data>
+  <data key="d1">9436</data>
+</edge>
+<edge source="Siófok" target="Veszprém">
+  <data key="d0">72_710_7</data>
+  <data key="d1">6554</data>
+</edge>
+<edge source="Veszprém" target="Szombathely">
+  <data key="d0">8_84&amp;8_87</data>
+  <data key="d1">11623</data>
+</edge>
+<edge source="div_point_Sopron_Szombathely" target="Sopron">
+  <data key="d0">M85&amp;85</data>
+  <data key="d1">10747</data>
+</edge>
+<edge source="div_point_Sopron_Szombathely" target="Szombathely">
+  <data key="d0">M86&amp;86</data>
+  <data key="d1">13110</data>
+</edge>
+</graph></graphml>
