@@ -47,7 +47,11 @@ def process_roads(direct_routes, roads_ids, gdf):
     
     return roads_dict, roads_dict_string, roads_simple_dict_string
 
-def combined_paralel_roads_dict(roads_dict_new):
+def road_dict_string_converter(roads_dict):
+    roads_dict_string = {str(key): value for key, value in roads_dict.items()}
+    return roads_dict_string
+
+def combined_paralel_roads_dict(roads_dict_new, with_road_IDs = False):
     roads_dict_new_simple = {}
     for (origin, destination), roads in roads_dict_new.items():
         if (origin, destination) in roads_dict_new_simple:
@@ -61,8 +65,10 @@ def combined_paralel_roads_dict(roads_dict_new):
                 'road_name': "&".join(road['road_name'] for road in roads),
                 'min_traffic': sum(road['min_traffic'] for road in roads),
                 'max_traffic': sum(road['max_traffic'] for road in roads),
-                'avg_traffic': sum(road['avg_traffic'] for road in roads)
+                'avg_traffic': sum(road['avg_traffic'] for road in roads),
             }]
+            if with_road_IDs:
+                roads_dict_new_simple[(origin, destination)][0]['road_ids'] = [road_id for road in roads for road_id in road['road_ids']]
     return roads_dict_new_simple
 
 def combine_edges(G):
