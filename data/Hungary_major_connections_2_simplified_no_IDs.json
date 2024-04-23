@@ -1,0 +1,250 @@
+{
+    "('Budapest', 'Kecskemét')": [
+        {
+            "road_name": "M5&5",
+            "min_traffic": 11479,
+            "max_traffic": 98201,
+            "avg_traffic": 72604.1679245283
+        }
+    ],
+    "('Kecskemét', 'Szeged')": [
+        {
+            "road_name": "M5&5",
+            "min_traffic": 45172,
+            "max_traffic": 83374,
+            "avg_traffic": 56321.74285714286
+        }
+    ],
+    "('Budapest', 'Szolnok')": [
+        {
+            "road_name": "M4&4",
+            "min_traffic": 24663,
+            "max_traffic": 124406,
+            "avg_traffic": 40101.95161290323
+        }
+    ],
+    "('Szolnok', 'Debrecen')": [
+        {
+            "road_name": "4",
+            "min_traffic": 6544,
+            "max_traffic": 31312,
+            "avg_traffic": 16736.071428571428
+        }
+    ],
+    "('Debrecen', 'Nyíregyháza')": [
+        {
+            "road_name": "4",
+            "min_traffic": 7736,
+            "max_traffic": 21692,
+            "avg_traffic": 15614.757575757576
+        }
+    ],
+    "('Budapest', 'div_point_Miskolc_Debrecen')": [
+        {
+            "road_name": "M3&3",
+            "min_traffic": 39783,
+            "max_traffic": 125375,
+            "avg_traffic": 63502.30158730159
+        }
+    ],
+    "('div_point_Miskolc_Debrecen', 'Miskolc')": [
+        {
+            "road_name": "M30&3",
+            "min_traffic": 23218,
+            "max_traffic": 65587,
+            "avg_traffic": 49137.47435897436
+        }
+    ],
+    "('Miskolc', 'Nyíregyháza')": [
+        {
+            "road_name": "37_38",
+            "min_traffic": 5154,
+            "max_traffic": 15470,
+            "avg_traffic": 11259.22033898305
+        }
+    ],
+    "('div_point_Miskolc_Debrecen', 'div_point_Debrecen_Nyíregyháza')": [
+        {
+            "road_name": "M3&35",
+            "min_traffic": 36905,
+            "max_traffic": 58238,
+            "avg_traffic": 43249.6038961039
+        }
+    ],
+    "('div_point_Debrecen_Nyíregyháza', 'Nyíregyháza')": [
+        {
+            "road_name": "M3",
+            "min_traffic": 9436,
+            "max_traffic": 48030,
+            "avg_traffic": 18922.11111111111
+        }
+    ],
+    "('div_point_Debrecen_Nyíregyháza', 'Debrecen')": [
+        {
+            "road_name": "M35&35",
+            "min_traffic": 14255,
+            "max_traffic": 47962,
+            "avg_traffic": 24556.607407407406
+        }
+    ],
+    "('Budapest', 'Dunaújváros')": [
+        {
+            "road_name": "M6&6",
+            "min_traffic": 26064,
+            "max_traffic": 56083,
+            "avg_traffic": 38089.54791666666
+        }
+    ],
+    "('Dunaújváros', 'Szekszárd')": [
+        {
+            "road_name": "M6&6",
+            "min_traffic": 16558,
+            "max_traffic": 33597,
+            "avg_traffic": 22054.374137931034
+        }
+    ],
+    "('Szekszárd', 'Pécs')": [
+        {
+            "road_name": "M6&6",
+            "min_traffic": 17482,
+            "max_traffic": 46255,
+            "avg_traffic": 25198.527777777777
+        }
+    ],
+    "('Budapest', 'Székesfehérvár')": [
+        {
+            "road_name": "M7&7",
+            "min_traffic": 65054,
+            "max_traffic": 151992,
+            "avg_traffic": 91149.75155279503
+        }
+    ],
+    "('Székesfehérvár', 'Siófok')": [
+        {
+            "road_name": "M7&7",
+            "min_traffic": 38232,
+            "max_traffic": 76399,
+            "avg_traffic": 50936.519568151154
+        }
+    ],
+    "('Budapest', 'Győr')": [
+        {
+            "road_name": "M1&1",
+            "min_traffic": 52134,
+            "max_traffic": 128390,
+            "avg_traffic": 81540.37523809524
+        }
+    ],
+    "('Győr', 'div_point_Sopron_Szombathely')": [
+        {
+            "road_name": "M85&85",
+            "min_traffic": 22395,
+            "max_traffic": 43138,
+            "avg_traffic": 28554.03125
+        }
+    ],
+    "('div_point_Sopron_Szombathely', 'Sopron')": [
+        {
+            "road_name": "M85&85",
+            "min_traffic": 10747,
+            "max_traffic": 19409,
+            "avg_traffic": 14961.490347490348
+        }
+    ],
+    "('div_point_Sopron_Szombathely', 'Szombathely')": [
+        {
+            "road_name": "M86&86",
+            "min_traffic": 13110,
+            "max_traffic": 28156,
+            "avg_traffic": 17994.764857881135
+        }
+    ],
+    "('Szolnok', 'Kecskemét')": [
+        {
+            "road_name": "441&44",
+            "min_traffic": 18807,
+            "max_traffic": 32499,
+            "avg_traffic": 23688.113636363636
+        }
+    ],
+    "('Kecskemét', 'Dunaújváros')": [
+        {
+            "road_name": "52",
+            "min_traffic": 6386,
+            "max_traffic": 19796,
+            "avg_traffic": 14402.75
+        }
+    ],
+    "('Dunaújváros', 'Székesfehérvár')": [
+        {
+            "road_name": "62",
+            "min_traffic": 5385,
+            "max_traffic": 24307,
+            "avg_traffic": 9887.5
+        }
+    ],
+    "('Székesfehérvár', 'Győr')": [
+        {
+            "road_name": "81",
+            "min_traffic": 8263,
+            "max_traffic": 27179,
+            "avg_traffic": 14020.238095238095
+        }
+    ],
+    "('Dunaújváros', 'Siófok')": [
+        {
+            "road_name": "6_61_64",
+            "min_traffic": 4562,
+            "max_traffic": 12164,
+            "avg_traffic": 7201.741935483871
+        }
+    ],
+    "('Siófok', 'Veszprém')": [
+        {
+            "road_name": "72_710_7",
+            "min_traffic": 6554,
+            "max_traffic": 11739,
+            "avg_traffic": 9934.121212121212
+        }
+    ],
+    "('Veszprém', 'Győr')": [
+        {
+            "road_name": "82",
+            "min_traffic": 3759,
+            "max_traffic": 18224,
+            "avg_traffic": 11540.137931034482
+        }
+    ],
+    "('Székesfehérvár', 'Veszprém')": [
+        {
+            "road_name": "8",
+            "min_traffic": 13132,
+            "max_traffic": 23242,
+            "avg_traffic": 18101.40740740741
+        }
+    ],
+    "('Veszprém', 'Szombathely')": [
+        {
+            "road_name": "8_84&8_87",
+            "min_traffic": 11623,
+            "max_traffic": 32490,
+            "avg_traffic": 17073.244239631334
+        }
+    ],
+    "('Szeged', 'Pécs')": [
+        {
+            "road_name": "55_56_57&55_56_M60",
+            "min_traffic": 3910,
+            "max_traffic": 37919,
+            "avg_traffic": 15171.59898989899
+        }
+    ],
+    "('Szeged', 'Szekszárd')": [
+        {
+            "road_name": "55_56",
+            "min_traffic": 4100,
+            "max_traffic": 18347,
+            "avg_traffic": 8565.646341463415
+        }
+    ]
+}
