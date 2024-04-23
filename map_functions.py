@@ -47,6 +47,24 @@ def process_roads(direct_routes, roads_ids, gdf):
     
     return roads_dict, roads_dict_string, roads_simple_dict_string
 
+def combined_paralel_roads_dict(roads_dict_new):
+    roads_dict_new_simple = {}
+    for (origin, destination), roads in roads_dict_new.items():
+        if (origin, destination) in roads_dict_new_simple:
+            roads_dict_new_simple[(origin, destination)][0]['min_traffic'] += sum(road['min_traffic'] for road in roads)
+            roads_dict_new_simple[(origin, destination)][0]['max_traffic'] += sum(road['max_traffic'] for road in roads)
+                                                                            #Not weighted sum, fine for now
+            roads_dict_new_simple[(origin, destination)][0]['avg_traffic'] += sum(road['avg_traffic'] for road in roads)
+            roads_dict_new_simple[(origin, destination)][0]['road_name'] += "&" + "&".join(road['road_name'] for road in roads)
+        else:
+            roads_dict_new_simple[(origin, destination)] = [{
+                'road_name': "&".join(road['road_name'] for road in roads),
+                'min_traffic': sum(road['min_traffic'] for road in roads),
+                'max_traffic': sum(road['max_traffic'] for road in roads),
+                'avg_traffic': sum(road['avg_traffic'] for road in roads)
+            }]
+    return roads_dict_new_simple
+
 def combine_edges(G):
     simple_G = nx.Graph()
     for u, v, data in G.edges(data=True):
