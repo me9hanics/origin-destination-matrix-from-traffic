@@ -2,6 +2,18 @@ import numpy as np
 import networkx as nx
 from itertools import combinations
 
+def create_paths_dict(route_list):
+    #Assuming list of lists
+    extra_paths = {}
+    for route in route_list:
+        if len(route) >= 2:
+                  #Origin, destination
+            key = (route[0], route[-1])
+            if key not in extra_paths:
+                extra_paths[key] = []
+            extra_paths[key].append(route)
+    return extra_paths
+
 def p_matrix_from_undirected_shortest_paths(G, shortest_paths_dict):
     #Roads and locations
     roads = [tuple(sorted(edge)) for edge in G.edges()] #Sorting for consistency
@@ -58,7 +70,7 @@ def v_P_odmbp_shortest_paths(G, removed_nodes=None, hidden_locations=None, extra
                 shortest_paths_dict[key].append(key_extra_path)
 
     #P matrix
-    P = computing_functions.p_matrix_from_undirected_shortest_paths(G, shortest_paths_dict)
+    P = p_matrix_from_undirected_shortest_paths(G, shortest_paths_dict)
 
     #Post-compute removing hidden locations from location_pairs, P and odm_blueprint
     if hidden_locations is not None:
@@ -69,3 +81,15 @@ def v_P_odmbp_shortest_paths(G, removed_nodes=None, hidden_locations=None, extra
                 P = np.delete(P, i, axis=1) #Delete the i-th column from the matrix
     
     return v, P, odm_blueprint, (road_names,locations, location_pairs, shortest_paths_dict) #v, P, odm, extra_info
+
+def get_all_zero_rows(matrix):
+    #Rows are selected based on the condition: not containing any non-zero elements
+    return np.where(~matrix.any(axis=1)) [0]
+
+def v_P_odmbp_reduced_matrix(G, f = v_P_odmbp_shortest_paths, removed_nodes=None, hidden_locations=None):
+    v, P, odm_blueprint, extra_info = f(G, removed_nodes, hidden_locations)
+    #Reduce the P matrix and the v vector: firstly, remove rows with zeros, then remove linearly dependent rows
+    
+    #TODO
+
+    return v, P, odm_blueprint, extra_info
