@@ -25,21 +25,23 @@ def p_matrix_from_undirected_shortest_paths(G, shortest_paths_dict):
 
     return P
 
-def v_P_odm0_shortest_paths(G, removed_nodes=None):
+def v_P_odmbp_shortest_paths(G, removed_nodes=None, hidden_locations=None, extra_paths_dict=None):
     #Vector of locations (if needed)
     locations = list(G.nodes())
-    for node in removed_nodes:
-        locations.remove(node)
+    if removed_nodes:
+        for node in removed_nodes:
+            locations.remove(node)
 
     #Vector of location pairs
     location_pairs = list(combinations(locations, 2))
     #Create a "blueprint" for O-D matrix
-    odm0 = np.full(len(location_pairs), 0.1)
+    odm_blueprint = np.full(len(location_pairs), 1) #0.1
     
     #Vector of road traffics
     v = np.array([G.get_edge_data(*edge)['weight'] for edge in G.edges()])
-    
-    #Shortest paths between all pairs of locations
+    road_names = [edge for edge in G.edges()]
+
+    #Shortest + extra paths between all pairs of locations
     shortest_paths_dict = {}
     for i in range(len(locations)):
         source = locations[i]
@@ -48,8 +50,22 @@ def v_P_odm0_shortest_paths(G, removed_nodes=None):
             if source != target:
                 paths = nx.all_shortest_paths(G, source=source, target=target)
                 shortest_paths_dict[(source, target)] = list(paths)  # Convert generator to list
+    if (extra_paths_dict is not None): #A possible checking of the type might be needed, e.g. if list, try create_paths_dict()
+        for key in extra_paths_dict:
+            if key not in shortest_paths_dict:
+                shortest_paths_dict[key] = []
+            for key_extra_path in extra_paths_dict[key]:
+                shortest_paths_dict[key].append(key_extra_path)
 
     #P matrix
-    P = p_matrix_from_undirected_shortest_paths(G, shortest_paths_dict)
+    P = computing_functions.p_matrix_from_undirected_shortest_paths(G, shortest_paths_dict)
+
+    #Post-compute removing hidden locations from location_pairs, P and odm_blueprint
+    if hidden_locations is not None:
+        for i in reversed(range(len(location_pairs))):  # Iterate in reverse order to avoid index errors
+            if any(loc in location_pairs[i] for loc in hidden_locations):
+                odm_blueprint = np.delete(odm_blueprint, i) #Delete the i-th row from the vector
+                del location_pairs[i]
+                P = np.delete(P, i, axis=1) #Delete the i-th column from the matrix
     
-    return v, P, odm0, locations, location_pairs
+    return v, P, odm_blueprint, (road_names,locations, location_pairs, shortest_paths_dict) #v, P, odm, extra_info
