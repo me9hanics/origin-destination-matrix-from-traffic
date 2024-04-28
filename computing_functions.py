@@ -38,6 +38,29 @@ def p_matrix_from_undirected_shortest_paths(G, shortest_paths_dict):
     return P
 
 def v_P_odmbp_shortest_paths(G, removed_nodes=None, hidden_locations=None, extra_paths_dict=None):
+    """
+    Given a graph + extra parameters, return v, P, a blueprint for the O-D matrix, and corresponding names/info.
+    The computation of P is based on the number of shortest paths between two locations, plus included extra paths. 
+    Removed nodes are not present during computation. Hidden locations are included in computing, but not in the output.
+    The function returns: road traffic (v) of size I x 1, an origin-destination matrix (ODM) footprint of size J x 1,
+    a matrix P of size I x J, all ordered in correspondance to each other and an extra info tuple containing road names,
+    locations, location pairs, and the shortest paths dictionary.
+    For further use, v = P * odm is assumed, from which one can estimate the ODM matrix. This is why order matters.
+
+    Parameters:
+    G (networkx.Graph): The graph on which shortest paths are to be calculated.
+    removed_nodes (list, optional): Nodes to be removed from the graph. Defaults to None.
+    hidden_locations (list, optional): Locations to be hidden in the final output. Defaults to None.
+    extra_paths_dict (dict, optional): Extra paths to be included in the shortest paths. Defaults to None.
+
+    Returns:
+    v (numpy.ndarray): Vector of road traffics.
+    P (numpy.ndarray): Matrix representing the shortest paths.
+    odm_blueprint (numpy.ndarray): Blueprint vector for an origin-destination matrix.
+    extra_info (tuple): A tuple containing road names, locations, location pairs, and the shortest paths dictionary.
+    """
+
+
     #Vector of locations (if needed)
     locations = list(G.nodes())
     if removed_nodes:
@@ -80,16 +103,17 @@ def v_P_odmbp_shortest_paths(G, removed_nodes=None, hidden_locations=None, extra
                 del location_pairs[i]
                 P = np.delete(P, i, axis=1) #Delete the i-th column from the matrix
     
-    return v, P, odm_blueprint, (road_names,locations, location_pairs, shortest_paths_dict) #v, P, odm, extra_info
+    return v, P, odm_blueprint, (road_names, locations, location_pairs, shortest_paths_dict) #v, P, odm, extra_info
 
 def get_all_zero_rows(matrix):
     #Rows are selected based on the condition: not containing any non-zero elements
     return np.where(~matrix.any(axis=1)) [0]
 
-def v_P_odmbp_reduced_matrix(G, f = v_P_odmbp_shortest_paths, removed_nodes=None, hidden_locations=None):
-    v, P, odm_blueprint, extra_info = f(G, removed_nodes, hidden_locations)
-    #Reduce the P matrix and the v vector: firstly, remove rows with zeros, then remove linearly dependent rows
-    
-    #TODO
+def v_P_odmbp_reduced_matrix(G, f = v_P_odmbp_shortest_paths, **model_parameters):
+    try:
+        v, P, odm_blueprint, extra_info = f(G, **model_parameters)
+    except TypeError:
+        raise TypeError(f"TypeError: function {f} does not accept some of the given parameters: {model_parameters}.")
+
 
     return v, P, odm_blueprint, extra_info
