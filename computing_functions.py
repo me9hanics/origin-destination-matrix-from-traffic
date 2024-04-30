@@ -57,7 +57,7 @@ def v_P_odmbp_shortest_paths(G, removed_nodes=None, hidden_locations=None, extra
     v (numpy.ndarray): Vector of road traffics.
     P (numpy.ndarray): Matrix representing the shortest paths.
     odm_blueprint (numpy.ndarray): Blueprint vector for an origin-destination matrix.
-    extra_info (tuple): A tuple containing road names, locations, location pairs, and the shortest paths dictionary.
+    extra_info (dict): A dict containing road names, locations, location pairs, and the shortest paths dictionary.
     """
 
 
@@ -94,6 +94,7 @@ def v_P_odmbp_shortest_paths(G, removed_nodes=None, hidden_locations=None, extra
 
     #P matrix
     P = p_matrix_from_undirected_shortest_paths(G, shortest_paths_dict)
+    #P = np.around(P, 5)  # Round P to 5 decimal places
 
     #Post-compute removing hidden locations from location_pairs, P and odm_blueprint
     if hidden_locations is not None:
@@ -103,17 +104,43 @@ def v_P_odmbp_shortest_paths(G, removed_nodes=None, hidden_locations=None, extra
                 del location_pairs[i]
                 P = np.delete(P, i, axis=1) #Delete the i-th column from the matrix
     
-    return v, P, odm_blueprint, (road_names, locations, location_pairs, shortest_paths_dict) #v, P, odm, extra_info
+    extra_info = {
+        "road_names": road_names,
+        "locations": locations,
+        "location_pairs": location_pairs,
+        "shortest_paths_dict": shortest_paths_dict
+    }
+    return v, P, odm_blueprint, extra_info #v, P, odm, extra_info
 
 def get_all_zero_rows(matrix):
     #Rows are selected based on the condition: not containing any non-zero elements
     return np.where(~matrix.any(axis=1)) [0]
+
+def remove_zero_rows(P, v):
+    non_zero_row_condition = ~np.all(P == 0, axis=1)
+    P_reduced = P[non_zero_row_condition]; v_reduced = v[non_zero_row_condition]
+    zero_rows = np.where(non_zero_row_condition == False)
+    if zero_rows[0].size > 0:
+        print(f"Removed full-zero rows at indexes: {zero_rows}")
+    return P_reduced, v_reduced
 
 def v_P_odmbp_reduced_matrix(G, f = v_P_odmbp_shortest_paths, **model_parameters):
     try:
         v, P, odm_blueprint, extra_info = f(G, **model_parameters)
     except TypeError:
         raise TypeError(f"TypeError: function {f} does not accept some of the given parameters: {model_parameters}.")
+    
+    import sympy
 
+    P_reduced, v_reduced = remove_zero_rows(P, v)
+    
+    #Reduced row echelon form: great for finding dependent and independent rows
+    _, independent_rows_indexes = sympy.Matrix(P_reduced).T.rref() #rref finds independent (pivot) columns, so we transpose 
+    independent_rows_indexes = list(independent_rows_indexes)
+    #removable_rows_indexes = set(range(P.shape[0])) - set(independent_rows_indexes)
 
-    return v, P, odm_blueprint, extra_info
+    P_reduced = P_reduced[independent_rows_indexes, :]
+    v_reduced = v_reduced[independent_rows_indexes]
+    extra_info["road_names"] = [extra_info["road_names"][i] for i in independent_rows_indexes]
+
+    return v_reduced, P_reduced, odm_blueprint, extra_info
