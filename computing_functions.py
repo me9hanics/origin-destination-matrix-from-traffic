@@ -144,3 +144,35 @@ def v_P_odmbp_reduced_matrix(G, f = v_P_odmbp_shortest_paths, **model_parameters
     extra_info["road_names"] = [extra_info["road_names"][i] for i in independent_rows_indexes]
 
     return v_reduced, P_reduced, odm_blueprint, extra_info
+
+def get_odm_2d_symmetric(odm, location_pairs):
+    locations = sorted(set([loc for pair in location_pairs for loc in pair]))
+    odm_2d = np.zeros((len(locations), len(locations)))
+
+    #For any origin-destination pair A-B and B-A, we store the same value
+    for pair, value in zip(location_pairs, odm):
+        i, j = locations.index(pair[0]), locations.index(pair[1])
+        odm_2d[i][j] = value
+        odm_2d[j][i] = value #Symmetric
+
+    return odm_2d
+
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+def plot_odm(odm_2d, locations, plot_type='heatmap', order = None):
+    if plot_type == 'heatmap':
+        sns.heatmap(odm_2d, xticklabels=locations, yticklabels=locations)
+        plt.show()
+    elif plot_type == 'scatterplot':
+        odm_long = odm_2d.reshape(-1)
+        x = np.repeat(locations, len(locations))
+        y = np.tile(locations, len(locations))
+        if order is not None:
+            odm_long = odm_long[order]
+            x = x[order]
+            y = y[order]
+        sns.scatterplot(x=x, y=y, size=odm_long)
+        plt.show()
+    else:
+        print(f"Unknown plot type: {plot_type}")#potential change to raise ValueError
