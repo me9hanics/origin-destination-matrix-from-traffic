@@ -37,7 +37,7 @@ def p_matrix_from_undirected_shortest_paths(G, shortest_paths_dict):
 
     return P
 
-def v_P_odmbp_shortest_paths(G, removed_nodes=None, hidden_locations=None, extra_paths_dict=None):
+def v_P_odmbp_shortest_paths(G, removed_nodes=None, hidden_locations=None, extra_paths_dict=None, round_P = False):
     """
     Given a graph + extra parameters, return v, P, a blueprint for the O-D matrix, and corresponding names/info.
     The computation of P is based on the number of shortest paths between two locations, plus included extra paths. 
@@ -94,7 +94,8 @@ def v_P_odmbp_shortest_paths(G, removed_nodes=None, hidden_locations=None, extra
 
     #P matrix
     P = p_matrix_from_undirected_shortest_paths(G, shortest_paths_dict)
-    #P = np.around(P, 5)  # Round P to 5 decimal places
+    if round_P:
+        P = np.around(P, 5)
 
     #Post-compute removing hidden locations from location_pairs, P and odm_blueprint
     if hidden_locations is not None:
@@ -158,7 +159,7 @@ def v_P_odmbp_reduced_matrix(G, f = v_P_odmbp_shortest_paths, **model_parameters
 
     P_reduced, v_reduced = remove_zero_rows(P, v)
     
-    #Reduced row echelon form: great for finding dependent and independent rows
+    #Reduced row echelon form: great approach for finding dependent and independent rows. In practice, might give different results (floats)
     _, independent_rows_indexes = sympy.Matrix(P_reduced).T.rref() #rref finds independent (pivot) columns, so we transpose 
     independent_rows_indexes = list(independent_rows_indexes)
     #removable_rows_indexes = set(range(P.shape[0])) - set(independent_rows_indexes)
@@ -166,6 +167,39 @@ def v_P_odmbp_reduced_matrix(G, f = v_P_odmbp_shortest_paths, **model_parameters
     P_reduced = P_reduced[independent_rows_indexes, :]
     v_reduced = v_reduced[independent_rows_indexes]
     extra_info["road_names"] = [extra_info["road_names"][i] for i in independent_rows_indexes]
+
+    #Sympy isn't always computing the same rank as numpy does.
+    #See this: https://stackoverflow.com/a/53793829/19626271
+    if np.linalg.matrix_rank(P_reduced) < np.min(P_reduced.shape):
+        print("Sympy measured higher rank than numpy, extra steps are needed to take")
+        #Try removing rows until the rank is maximal
+        dependent_rows = find_minimal_dependent_rows(P_reduced)
+        potential_rows = [i for group in dependent_rows for i in group]
+        rank = np.linalg.matrix_rank(P_reduced)
+        deleted_rows_indexes = []
+        P_current = P_reduced.copy()
+
+        while np.linalg.matrix_rank(P_current) < np.min(P_current.shape):
+            for i in (potential_rows):
+                if i in deleted_rows_indexes:
+                    #Row is already removed
+                    continue
+                included_indexes = [j for j in range(P_reduced.shape[0]) if j not in deleted_rows_indexes]
+                P_current = P_reduced[included_indexes, :]
+                P_temp = P_reduced[[idx for idx in included_indexes if idx != i], :]
+
+                if np.linalg.matrix_rank(P_temp) < rank:
+                    #Rank decreased, row i is independent: should not be removed
+                    continue
+                else:
+                    #Rank didn't decrease: we can remove this row
+                    deleted_rows_indexes.append(i)
+                    P_current = P_temp
+        
+        print(f"Deleted rows list (index): {deleted_rows_indexes}")
+        P_reduced = np.delete(P_reduced, deleted_rows_indexes, axis=0)
+        v_reduced = np.delete(v_reduced, deleted_rows_indexes)
+        extra_info["road_names"] = [extra_info["road_names"][i] for i in range(len(extra_info["road_names"])) if i not in deleted_rows_indexes]
 
     return v_reduced, P_reduced, odm_blueprint, extra_info
 
