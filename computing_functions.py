@@ -124,6 +124,30 @@ def remove_zero_rows(P, v):
         print(f"Removed full-zero rows at indexes: {zero_rows}")
     return P_reduced, v_reduced
 
+def find_minimal_dependent_rows(P):
+    dependencies = []
+    #rank = np.linalg.matrix_rank(P)
+    new_rank = 0
+    for i in range(P.shape[0]):
+        submatrix = P[:i+1]
+        previous_rank = new_rank
+        new_rank = np.linalg.matrix_rank(submatrix)
+        if new_rank == previous_rank:
+            #The new row is linearly dependent with some of the previous rows
+            #We first assume all of them, then remove those which are independent
+            dependent_rows = list(range(i+1))
+            for j in range(i):
+                #Check if deleting row j reduces the rank 
+                reduced_submatrix = np.delete(submatrix, j, axis=0)
+                if np.linalg.matrix_rank(reduced_submatrix) < new_rank:
+                    #Row j is independent from all the previous rows
+                    dependent_rows.remove(j)
+            if dependent_rows:
+                dependencies.append(dependent_rows)
+            else:
+                print("Found empty group")
+    return [d for d in dependencies if len(d) > 1]
+
 def v_P_odmbp_reduced_matrix(G, f = v_P_odmbp_shortest_paths, **model_parameters):
     try:
         v, P, odm_blueprint, extra_info = f(G, **model_parameters)
@@ -155,7 +179,7 @@ def get_odm_2d_symmetric(odm, location_pairs):
         odm_2d[i][j] = value
         odm_2d[j][i] = value #Symmetric
 
-    return odm_2d
+    return odm_2d, locations
 
 import matplotlib.pyplot as plt
 import seaborn as sns
