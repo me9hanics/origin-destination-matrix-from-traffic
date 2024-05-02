@@ -1,5 +1,6 @@
 {
 "type": "FeatureCollection",
+"crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:EPSG::23700" } },
 "features": [
 { "type": "Feature", "properties": { "tile_ID": 2112, "population": 1740041 }, "geometry": { "type": "Point", "coordinates": [ 668875.139108891831711, 237758.424693589418894 ] } },
 { "type": "Feature", "properties": { "tile_ID": 3009, "population": 79348 }, "geometry": { "type": "Point", "coordinates": [ 466337.132587486295961, 212499.457457377604442 ] } },
