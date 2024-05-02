@@ -1,0 +1,21 @@
+{
+"type": "FeatureCollection",
+"features": [
+{ "type": "Feature", "properties": { "tile_ID": 2112, "population": 1740041 }, "geometry": { "type": "Point", "coordinates": [ 668875.139108891831711, 237758.424693589418894 ] } },
+{ "type": "Feature", "properties": { "tile_ID": 3009, "population": 79348 }, "geometry": { "type": "Point", "coordinates": [ 466337.132587486295961, 212499.457457377604442 ] } },
+{ "type": "Feature", "properties": { "tile_ID": 3115, "population": 48010 }, "geometry": { "type": "Point", "coordinates": [ 641282.563864226918668, 180360.930537903273944 ] } },
+{ "type": "Feature", "properties": { "tile_ID": 8518, "population": 61390 }, "geometry": { "type": "Point", "coordinates": [ 465570.571697286446579, 263032.53861693746876 ] } },
+{ "type": "Feature", "properties": { "tile_ID": 11767, "population": 64024 }, "geometry": { "type": "Point", "coordinates": [ 563763.092847425374202, 194977.932177855691407 ] } },
+{ "type": "Feature", "properties": { "tile_ID": 14827, "population": 101722 }, "geometry": { "type": "Point", "coordinates": [ 601716.462974803638645, 205286.182426824729191 ] } },
+{ "type": "Feature", "properties": { "tile_ID": 15130, "population": 207594 }, "geometry": { "type": "Point", "coordinates": [ 844660.841440600575879, 246482.448457709047943 ] } },
+{ "type": "Feature", "properties": { "tile_ID": 17206, "population": 117658 }, "geometry": { "type": "Point", "coordinates": [ 849335.110890695825219, 293597.240916563489009 ] } },
+{ "type": "Feature", "properties": { "tile_ID": 17631, "population": 24375 }, "geometry": { "type": "Point", "coordinates": [ 574617.585271907271817, 173796.027663200744428 ] } },
+{ "type": "Feature", "properties": { "tile_ID": 19415, "population": 156801 }, "geometry": { "type": "Point", "coordinates": [ 587020.624552886700258, 82405.157216752399108 ] } },
+{ "type": "Feature", "properties": { "tile_ID": 22761, "population": 33311 }, "geometry": { "type": "Point", "coordinates": [ 623953.947672918322496, 111791.216898631639197 ] } },
+{ "type": "Feature", "properties": { "tile_ID": 25584, "population": 131564 }, "geometry": { "type": "Point", "coordinates": [ 543968.11045965179801, 260901.472041400964372 ] } },
+{ "type": "Feature", "properties": { "tile_ID": 26684, "population": 114226 }, "geometry": { "type": "Point", "coordinates": [ 699050.39246933045797, 173752.572833552199882 ] } },
+{ "type": "Feature", "properties": { "tile_ID": 27854, "population": 74341 }, "geometry": { "type": "Point", "coordinates": [ 737349.129607884213328, 204997.767107728664996 ] } },
+{ "type": "Feature", "properties": { "tile_ID": 30456, "population": 166823 }, "geometry": { "type": "Point", "coordinates": [ 779288.2488173476886, 307709.010970485105645 ] } },
+{ "type": "Feature", "properties": { "tile_ID": 33367, "population": 170052 }, "geometry": { "type": "Point", "coordinates": [ 734878.515720796654932, 101537.22203640632506 ] } }
+]
+}
