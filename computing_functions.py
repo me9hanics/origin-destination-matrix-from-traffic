@@ -1,5 +1,7 @@
 import numpy as np
 import networkx as nx
+import matplotlib.pyplot as plt
+import seaborn as sns
 from itertools import combinations
 
 def create_paths_dict(route_list):
@@ -214,9 +216,6 @@ def get_odm_2d_symmetric(odm, location_pairs):
         odm_2d[j][i] = value #Symmetric
 
     return odm_2d, locations
-
-import matplotlib.pyplot as plt
-import seaborn as sns
 
 def plot_odm(odm_2d, locations, plot_type='heatmap', order = None):
     if plot_type == 'heatmap':
