@@ -1,6 +1,7 @@
 import numpy as np
 import networkx as nx
 import matplotlib.pyplot as plt
+import matplotlib.colors as colors
 import seaborn as sns
 from itertools import combinations
 
@@ -217,11 +218,16 @@ def get_odm_2d_symmetric(odm, location_pairs):
 
     return odm_2d, locations
 
-def plot_odm(odm_2d, locations, plot_type='heatmap', order = None):
+def plot_odm(odm_2d, locations, plot_type='heatmap', order = None, log_scale=False):
     if plot_type == 'heatmap':
-        sns.heatmap(odm_2d, xticklabels=locations, yticklabels=locations)
+        if not log_scale:
+            sns.heatmap(odm_2d, xticklabels=locations, yticklabels=locations)
+        else:
+            sns.heatmap(odm_2d, xticklabels=locations, yticklabels=locations, norm=colors.LogNorm())
         plt.show()
     elif plot_type == 'scatterplot':
+        if log_scale:
+            print("Log scale is not supported for scatterplot")
         odm_long = odm_2d.reshape(-1)
         x = np.repeat(locations, len(locations))
         y = np.tile(locations, len(locations))
@@ -233,3 +239,28 @@ def plot_odm(odm_2d, locations, plot_type='heatmap', order = None):
         plt.show()
     else:
         print(f"Unknown plot type: {plot_type}")#potential change to raise ValueError
+
+def plot_odm_axis(odm_2d, locations, plot_type='heatmap', order=None, ax=None, log_scale=False):
+    if ax is None:
+        fig, ax = plt.subplots()
+
+    if plot_type == 'heatmap':
+        if not log_scale:
+            sns.heatmap(odm_2d, xticklabels=locations, yticklabels=locations, ax=ax)
+        else:
+            sns.heatmap(odm_2d, xticklabels=locations, yticklabels=locations, norm=colors.LogNorm(), ax=ax)
+    elif plot_type == 'scatterplot':
+        if log_scale:
+            print("Log scale is not supported for scatterplot")
+        odm_long = odm_2d.reshape(-1)
+        x = np.repeat(locations, len(locations))
+        y = np.tile(locations, len(locations))
+        if order is not None:
+            odm_long = odm_long[order]
+            x = x[order]
+            y = y[order]
+        sns.scatterplot(x=x, y=y, size=odm_long, ax=ax)
+    else:
+        print(f"Unknown plot type: {plot_type}")  # potential change to raise ValueError
+
+    plt.show()
