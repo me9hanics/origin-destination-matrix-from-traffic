@@ -120,7 +120,7 @@ def get_all_zero_rows(matrix):
     #Rows are selected based on the condition: not containing any non-zero elements
     return np.where(~matrix.any(axis=1)) [0]
 
-def remove_zero_rows(P, v):
+def remove_full_zero_rows(P, v):
     non_zero_row_condition = ~np.all(P == 0, axis=1)
     P_reduced = P[non_zero_row_condition]; v_reduced = v[non_zero_row_condition]
     zero_rows = np.where(non_zero_row_condition == False)
@@ -128,8 +128,10 @@ def remove_zero_rows(P, v):
         print(f"Removed full-zero rows at indexes: {zero_rows}")
     return P_reduced, v_reduced
 
-def find_minimal_dependent_rows(P):
+def find_dependent_rows(P, verbose=True, return_independent=False):
+    #Note: The case when after one group is found, the next groups will include it, is not fixed
     dependencies = []
+    independent_rows = []
     #rank = np.linalg.matrix_rank(P)
     new_rank = 0
     for i in range(P.shape[0]):
@@ -149,8 +151,50 @@ def find_minimal_dependent_rows(P):
             if dependent_rows:
                 dependencies.append(dependent_rows)
             else:
-                print("Found empty group")
-    return [d for d in dependencies if len(d) > 1]
+                if verbose:
+                    print("Found empty group")
+
+    independent_rows = [i for i in range(P.shape[0]) if i not in [idx for group in dependencies for idx in group]]
+    if verbose:
+        print(f"Dependent rows: {dependencies}")        
+        print(f"Independent rows count: {len(independent_rows)}, out of {P.shape[0]} rows")
+        length_1_dependencies = [d for d in dependencies if len(d) == 1]
+        print(f"Amount of 1-length dependent groups: {len(length_1_dependencies)}")
+        if length_1_dependencies:
+            print(f"1-length dependent groups: {length_1_dependencies}")
+    if return_independent:
+        return dependencies, independent_rows
+    return dependencies #return [d for d in dependencies if len(d) > 1]
+
+def hard_remove_dependent_rows(P_reduced):
+    #Cases for when the rank is not maximal according to numpy
+    #Remove rows that do not reduce the rank, until it is maximal (equal to the number of rows in this case)
+    dependent_rows = find_dependent_rows(P_reduced)
+    potential_rows = [i for group in dependent_rows for i in group]
+    rank = np.linalg.matrix_rank(P_reduced)
+    deleted_rows_indexes = []
+    P_current = P_reduced.copy()
+
+    while np.linalg.matrix_rank(P_current) < np.min(P_current.shape):
+        for i in (potential_rows):
+            if i in deleted_rows_indexes:
+                #Row is already removed
+                continue
+            included_indexes = [j for j in range(P_reduced.shape[0]) if j not in deleted_rows_indexes]
+            P_current = P_reduced[included_indexes, :]
+            P_temp = P_reduced[[idx for idx in included_indexes if idx != i], :]
+
+            if np.linalg.matrix_rank(P_temp) < rank:
+                #Rank decreased, row i is independent: should not be removed
+                continue
+            else:
+                #Rank didn't decrease: we can remove this row
+                deleted_rows_indexes.append(i)
+                P_current = P_temp
+
+    #Matrix with dependent rows removed
+    P_independent = np.delete(P_reduced, deleted_rows_indexes, axis=0)
+    return P_independent, deleted_rows_indexes
 
 def v_P_odmbp_reduced_matrix(G, f = v_P_odmbp_shortest_paths, **model_parameters):
     try:
@@ -160,7 +204,39 @@ def v_P_odmbp_reduced_matrix(G, f = v_P_odmbp_shortest_paths, **model_parameters
     
     import sympy
 
-    P_reduced, v_reduced = remove_zero_rows(P, v)
+    P_reduced, v_reduced = remove_full_zero_rows(P, v)
+    
+    _, independent_rows_indexes = sympy.Matrix(P_reduced).T.rref() 
+    independent_rows_indexes = list(independent_rows_indexes)
+
+    P_reduced = P_reduced[independent_rows_indexes, :]
+    v_reduced = v_reduced[independent_rows_indexes]
+    extra_info["road_names"] = [extra_info["road_names"][i] for i in independent_rows_indexes]
+
+    if np.linalg.matrix_rank(P_reduced) < np.min(P_reduced.shape):
+        print("Sympy measured higher rank than numpy, extra steps are needed to take")
+        #Try removing rows until the rank is maximal
+        _, deleted_rows_indexes = hard_remove_dependent_rows(P_reduced)
+        
+        print(f"Deleted rows list (index): {deleted_rows_indexes}")
+        P_reduced = np.delete(P_reduced, deleted_rows_indexes, axis=0)
+        v_reduced = np.delete(v_reduced, deleted_rows_indexes)
+        extra_info["road_names"] = [extra_info["road_names"][i] for i in range(len(extra_info["road_names"])) if i not in deleted_rows_indexes]
+
+    return v_reduced, P_reduced, odm_blueprint, extra_info
+
+def v_P_odmbp_reduced_matrix_complete(G, f = v_P_odmbp_shortest_paths, **model_parameters):
+    """
+    Old version of the function, before dividing into smaller functions.
+    """
+    try:
+        v, P, odm_blueprint, extra_info = f(G, **model_parameters)
+    except TypeError:
+        raise TypeError(f"TypeError: function {f} does not accept some of the given parameters: {model_parameters}.")
+    
+    import sympy
+
+    P_reduced, v_reduced = remove_full_zero_rows(P, v)
     
     #Reduced row echelon form: great approach for finding dependent and independent rows. In practice, might give different results (floats)
     _, independent_rows_indexes = sympy.Matrix(P_reduced).T.rref() #rref finds independent (pivot) columns, so we transpose 
@@ -176,7 +252,7 @@ def v_P_odmbp_reduced_matrix(G, f = v_P_odmbp_shortest_paths, **model_parameters
     if np.linalg.matrix_rank(P_reduced) < np.min(P_reduced.shape):
         print("Sympy measured higher rank than numpy, extra steps are needed to take")
         #Try removing rows until the rank is maximal
-        dependent_rows = find_minimal_dependent_rows(P_reduced)
+        dependent_rows = find_dependent_rows(P_reduced)
         potential_rows = [i for group in dependent_rows for i in group]
         rank = np.linalg.matrix_rank(P_reduced)
         deleted_rows_indexes = []
