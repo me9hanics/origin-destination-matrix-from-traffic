@@ -294,6 +294,48 @@ def get_odm_2d_symmetric(odm, location_pairs):
 
     return odm_2d, locations
 
+def odm_ids_df_to_odm_2d(odm_df, id_place_dict, places_sorted=None):
+    if places_sorted is None:
+        places_sorted = [id_place_dict[int(id)] for id in odm_df['destination'].unique()]
+    odm_2d = np.zeros((len(places_sorted), len(places_sorted)))
+
+    for i, row in odm_df.iterrows():
+        origin = row['origin']; destination = row['destination']
+        odm_2d[places_sorted.index(id_place_dict[origin]), places_sorted.index(id_place_dict[destination])] = row['flow']
+    return odm_2d
+
+def odm_ids_df_to_odm_2d_symmetric(odm_df, id_place_dict, places_sorted=None):
+    if places_sorted is None:
+        places_sorted = [id_place_dict[int(id)] for id in odm_df['destination'].unique()]
+    odm_2d = np.zeros((len(places_sorted), len(places_sorted)))
+
+    for i, row in odm_df.iterrows():
+        origin = row['origin']; destination = row['destination']
+        odm_2d[places_sorted.index(id_place_dict[origin]), places_sorted.index(id_place_dict[destination])] = row['flow']
+        odm_2d[places_sorted.index(id_place_dict[destination]), places_sorted.index(id_place_dict[origin])] = row['flow']
+    return odm_2d
+
+def odm_location_names_df_to_odm_2d(odm_df, places_sorted=None):
+    if places_sorted is None:
+        places_sorted = list(np.sort([name for name in odm_df['destination'].unique()]))
+    odm_2d = np.zeros((len(places_sorted), len(places_sorted)))
+
+    for i, row in odm_df.iterrows():
+        origin = row['origin']; destination = row['destination']
+        odm_2d[places_sorted.index(origin), places_sorted.index(destination)] = row['flow']
+    return odm_2d
+
+def odm_location_names_df_to_odm_2d_symmetric(odm_df, places_sorted=None):
+    if places_sorted is None:
+        places_sorted = list(np.sort([name for name in odm_df['destination'].unique()]))
+    odm_2d = np.zeros((len(places_sorted), len(places_sorted)))
+
+    for i, row in odm_df.iterrows():
+        origin = row['origin']; destination = row['destination']
+        odm_2d[places_sorted.index(origin), places_sorted.index(destination)] = row['flow']
+        odm_2d[places_sorted.index(destination), places_sorted.index(origin)] = row['flow']
+    return odm_2d
+
 def plot_odm(odm_2d, locations, plot_type='heatmap', order = None, log_scale=False):
     if plot_type == 'heatmap':
         if not log_scale:
@@ -339,4 +381,21 @@ def plot_odm_axis(odm_2d, locations, plot_type='heatmap', order=None, ax=None, l
     else:
         print(f"Unknown plot type: {plot_type}")  # potential change to raise ValueError
 
-    plt.show()
+def evaluate_model(predicted, real, model_name="model", verbose=True):
+    from scipy.stats import pearsonr
+    from sklearn.metrics import mean_squared_error
+    mse = mean_squared_error(real.flatten(), predicted.flatten())
+    corr, _ = pearsonr(real.flatten(), predicted.flatten())
+
+    #Skip cases where real value is 0 (division by 0)
+    mask = (real != 0)
+    real_masked = real[mask]
+    predicted_masked = predicted[mask]
+
+    ssrd = np.sum(((real_masked - predicted_masked) / real_masked) ** 2)
+
+    if verbose:
+        print(f'MSE for {model_name}: {mse}')
+        print(f'Correlation for {model_name}: {corr}')
+        print(f'SoS of relative differences for {model_name}: {ssrd}\n')
+    return mse, corr, ssrd
