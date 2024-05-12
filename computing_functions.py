@@ -338,6 +338,11 @@ def odm_location_names_df_to_odm_2d_symmetric(odm_df, places_sorted=None):
 
 def plot_odm(odm_2d, locations, plot_type='heatmap', order = None, log_scale=False):
     if plot_type == 'heatmap':
+        if order is not None:
+            original_order = locations
+            current_order = [original_order.index(i) for i in order]
+            odm_2d = odm_2d[current_order][:, current_order]
+            locations = order
         if not log_scale:
             sns.heatmap(odm_2d, xticklabels=locations, yticklabels=locations)
         else:
