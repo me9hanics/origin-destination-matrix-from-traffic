@@ -358,7 +358,7 @@ def plot_odm(odm_2d, locations, plot_type='heatmap', order = None, log_scale=Fal
     else:
         print(f"Unknown plot type: {plot_type}")#potential change to raise ValueError
 
-def plot_odm_axis(odm_2d, locations, plot_type='heatmap', order=None, ax=None, log_scale=False):
+def plot_odm_axis(odm_2d, locations, plot_type='heatmap', order=None, ax=None, log_scale=False, title=None):
     if ax is None:
         fig, ax = plt.subplots()
 
@@ -380,6 +380,8 @@ def plot_odm_axis(odm_2d, locations, plot_type='heatmap', order=None, ax=None, l
         sns.scatterplot(x=x, y=y, size=odm_long, ax=ax)
     else:
         print(f"Unknown plot type: {plot_type}")  # potential change to raise ValueError
+    if title is not None:
+        ax.set_title(title)
 
 def evaluate_model(predicted, real, model_name="model", verbose=True):
     from scipy.stats import pearsonr
