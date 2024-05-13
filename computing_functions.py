@@ -336,6 +336,18 @@ def odm_location_names_df_to_odm_2d_symmetric(odm_df, places_sorted=None):
         odm_2d[places_sorted.index(destination), places_sorted.index(origin)] = row['flow']
     return odm_2d
 
+def sort_odm_loc_names_df(odm_df, ordered_o_d_tuple_list):
+    #Column with the index of each (origin, destination) pair in the ordered list
+    odm_df['sort_key'] = None
+    for i, (o, d) in enumerate(ordered_o_d_tuple_list):
+        odm_df.loc[(odm_df['origin'] == o) & (odm_df['destination'] == d), 'sort_key'] = i
+    #odm_df['sort_key'] = [ordered_o_d_tuple_list.index((o, d)) for o, d in zip(odm_df['origin'], odm_df['destination'])]
+    odm_df = odm_df[odm_df['sort_key'].notnull()]
+    
+    sorted_df = odm_df.sort_values(by='sort_key')
+    sorted_df = sorted_df.drop(columns='sort_key')
+    return sorted_df
+
 def plot_odm(odm_2d, locations, plot_type='heatmap', order = None, log_scale=False):
     if plot_type == 'heatmap':
         if order is not None:
@@ -368,6 +380,11 @@ def plot_odm_axis(odm_2d, locations, plot_type='heatmap', order=None, ax=None, l
         fig, ax = plt.subplots()
 
     if plot_type == 'heatmap':
+        if order is not None:
+            original_order = locations
+            current_order = [original_order.index(i) for i in order]
+            odm_2d = odm_2d[current_order][:, current_order]
+            locations = order
         if not log_scale:
             sns.heatmap(odm_2d, xticklabels=locations, yticklabels=locations, ax=ax)
         else:
