@@ -348,7 +348,9 @@ def sort_odm_loc_names_df(odm_df, ordered_o_d_tuple_list):
     sorted_df = sorted_df.drop(columns='sort_key')
     return sorted_df
 
-def plot_odm(odm_2d, locations, plot_type='heatmap', order = None, log_scale=False):
+
+###################### Plotting, evaluation and other functions ######################
+def plot_odm(odm_2d, locations, plot_type='heatmap', order = None, log_scale=False, half=False, color='blue'):
     if plot_type == 'heatmap':
         if order is not None:
             original_order = locations
@@ -359,23 +361,20 @@ def plot_odm(odm_2d, locations, plot_type='heatmap', order = None, log_scale=Fal
             sns.heatmap(odm_2d, xticklabels=locations, yticklabels=locations)
         else:
             sns.heatmap(odm_2d, xticklabels=locations, yticklabels=locations, norm=colors.LogNorm())
-        plt.show()
     elif plot_type == 'scatterplot':
         if log_scale:
             print("Log scale is not supported for scatterplot")
-        odm_long = odm_2d.reshape(-1)
-        x = np.repeat(locations, len(locations))
-        y = np.tile(locations, len(locations))
+        odm_long = odm_2d[np.triu_indices(odm_2d.shape[0], k = 1)] if half else odm_2d.reshape(-1)
+        x = [(locations[i], locations[j]) for i in range(len(locations)) for j in range(i+1, len(locations))] if half else [(loc1, loc2) for loc1 in locations for loc2 in locations]
+        y = odm_long
         if order is not None:
-            odm_long = odm_long[order]
-            x = x[order]
-            y = y[order]
-        sns.scatterplot(x=x, y=y, size=odm_long)
-        plt.show()
+            x = order
+        scatter = sns.scatterplot(x=[str(i) for i in x], y=y, size=odm_long, color=color)
+        plt.xticks(rotation=45, fontsize='small')
     else:
-        print(f"Unknown plot type: {plot_type}")#potential change to raise ValueError
+        print(f"Unknown plot type: {plot_type}")
 
-def plot_odm_axis(odm_2d, locations, plot_type='heatmap', order=None, ax=None, log_scale=False, title=None):
+def plot_odm_axis(odm_2d, locations, plot_type='heatmap', order=None, ax=None, log_scale=False, half=False, title=None, color='blue'):
     if ax is None:
         fig, ax = plt.subplots()
 
@@ -392,14 +391,13 @@ def plot_odm_axis(odm_2d, locations, plot_type='heatmap', order=None, ax=None, l
     elif plot_type == 'scatterplot':
         if log_scale:
             print("Log scale is not supported for scatterplot")
-        odm_long = odm_2d.reshape(-1)
-        x = np.repeat(locations, len(locations))
-        y = np.tile(locations, len(locations))
+        odm_long = odm_2d[np.triu_indices(odm_2d.shape[0], k = 1)] if half else odm_2d.reshape(-1)
+        x = [(locations[i], locations[j]) for i in range(len(locations)) for j in range(i+1, len(locations))] if half else [(loc1, loc2) for loc1 in locations for loc2 in locations]
+        y = odm_long
         if order is not None:
-            odm_long = odm_long[order]
-            x = x[order]
-            y = y[order]
-        sns.scatterplot(x=x, y=y, size=odm_long, ax=ax)
+            x = order
+        scatter = sns.scatterplot(x=[str(i) for i in x], y=y, size=odm_long, color=color, ax=ax)
+        plt.xticks(rotation=45, fontsize='small')
     else:
         print(f"Unknown plot type: {plot_type}")  # potential change to raise ValueError
     if title is not None:
