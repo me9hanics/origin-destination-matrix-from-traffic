@@ -207,7 +207,8 @@ def plot_road_traffic_with_given_locations_groups_separately(road_gdf,location_l
         plt.show()
 
 ################ Model plotting functions ################
-def plot_odm(odm_2d, locations, plot_type='heatmap', order = None, log_scale=False, half=False, color='blue'):
+def plot_odm(odm_2d, locations, plot_type='heatmap', order = None, log_scale=False, half=False, color='blue', x_label_size=None, x_label_rotation=0):
+    from collections import defaultdict
     if plot_type == 'heatmap':
         if order is not None:
             original_order = locations
@@ -218,6 +219,7 @@ def plot_odm(odm_2d, locations, plot_type='heatmap', order = None, log_scale=Fal
             sns.heatmap(odm_2d, xticklabels=locations, yticklabels=locations)
         else:
             sns.heatmap(odm_2d, xticklabels=locations, yticklabels=locations, norm=colors.LogNorm())
+
     elif plot_type == 'scatterplot':
         if log_scale:
             print("Log scale is not supported for scatterplot")
@@ -227,11 +229,18 @@ def plot_odm(odm_2d, locations, plot_type='heatmap', order = None, log_scale=Fal
         if order is not None:
             x = order
         scatter = sns.scatterplot(x=[str(i) for i in x], y=y, size=odm_long, color=color)
-        plt.xticks(rotation=45, fontsize='small')
+        #plt.xticks(rotation=45, fontsize='small')
     else:
         print(f"Unknown plot type: {plot_type}")
+        return None
+    
+    plot_params = {}
+    plot_params['rotation'] = x_label_rotation
+    plot_params['fontsize'] = x_label_size
+    plt.xticks(**plot_params)
+    return plt
 
-def plot_odm_axis(odm_2d, locations, plot_type='heatmap', order=None, ax=None, log_scale=False, half=False, title=None, color='blue'):
+def plot_odm_axis(odm_2d, locations, plot_type='heatmap', order=None, ax=None, log_scale=False, half=False, title=None, color='blue', x_label_size=None, x_label_rotation=0):
     if ax is None:
         fig, ax = plt.subplots()
 
@@ -254,11 +263,37 @@ def plot_odm_axis(odm_2d, locations, plot_type='heatmap', order=None, ax=None, l
         if order is not None:
             x = order
         scatter = sns.scatterplot(x=[str(i) for i in x], y=y, size=odm_long, color=color, ax=ax)
-        plt.xticks(rotation=45, fontsize='small')
     else:
         print(f"Unknown plot type: {plot_type}")  # potential change to raise ValueError
     if title is not None:
         ax.set_title(title)
+
+    plot_params = {}
+    plot_params['rotation'] = x_label_rotation
+    plot_params['fontsize'] = x_label_size
+    plt.xticks(**plot_params)
+    return plt
+
+def plot_models(models_dict, x_labels=None):
+    """
+    The dictionary should have the model names as keys and the ordered O-D values as values.
+    """
+    fig, ax = plt.subplots(figsize=(20, 7))
+
+    for label, model in models_dict.items():
+        if model.ndim != 1:
+            print(f"Model {label} is not 1D, converting to 1D")
+            model = model.reshape(-1)
+        ax.plot(model, label=label)
+
+        if x_labels is not None:
+            min_idx = np.argmin(model)
+            max_idx = np.argmax(model)
+            ax.annotate(f'{x_labels[min_idx]}', (min_idx, model[min_idx]), textcoords="offset points", xytext=(-10,-10), ha='center')
+            ax.annotate(f'{x_labels[max_idx]}', (max_idx, model[max_idx]), textcoords="offset points", xytext=(-10,10), ha='center')
+
+    plt.legend()
+    plt.show()
 
 def evaluate_model(predicted, real, model_name="model", verbose=True):
     from scipy.stats import pearsonr
@@ -278,3 +313,27 @@ def evaluate_model(predicted, real, model_name="model", verbose=True):
         print(f'Correlation for {model_name}: {corr}')
         print(f'SoS of relative differences for {model_name}: {ssrd}\n')
     return mse, corr, ssrd
+
+def plot_symmetric_models_by_real_values(x, models_dict, colors_list=None):
+    #Assuming array inputs
+    if x.ndim != 1:
+        print("Assuming x is a matrix, taking the upper triangle")
+        x = list(x[np.triu_indices(x.shape[0], k = 1)])
+
+    fig, ax = plt.subplots(1, 1, figsize=(20, 6))
+    plt.plot([0, 10000], [0, 10000], color='black', label='y=x')
+    for i, (label, model) in enumerate(models_dict.items()):
+        if model.ndim != 1:
+            print(f"Assuming {label} is a matrix, taking the upper triangle")
+            y = list(model[np.triu_indices(model.shape[0], k = 1)])
+        else:
+            y = model
+        if colors_list is not None:
+            ax.scatter(x, y, label=label, color=colors_list[i])
+        else:
+            ax.scatter(x, y, label=label)
+
+    plt.xscale('log')
+    plt.yscale('log')
+    plt.legend()
+    plt.show()
