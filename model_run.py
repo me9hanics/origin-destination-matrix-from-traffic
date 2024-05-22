@@ -2,7 +2,20 @@ import argparse
 import sys
 
 def run_model(model_name, data, output_filename, **kwargs):
+    """
+    Run a model with given data and save the output to a file.
+
+    Args:
+        model_name (str): The name of the model to run.
+        data (str): The data to use with the model.
+        output_filename (str): The name of the output file.
+        kwargs (dict): Additional optional arguments to pass to the model.
+            output_format (str): The format to save the output in. Default is 'csv', other options are 'json' and 'txt'.
+    """
+    
     #TODO
+
+
     pass
 
 def parser(args=None):
