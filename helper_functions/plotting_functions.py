@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 from matplotlib import colors
 import seaborn as sns
 import networkx as nx
+from sklearn.metrics import mean_squared_error, mean_absolute_error
 
 ################ Map plotting functions ################
 
@@ -314,14 +315,16 @@ def evaluate_model(predicted, real, model_name="model", verbose=True):
         print(f'SoS of relative differences for {model_name}: {ssrd}\n')
     return mse, corr, ssrd
 
-def plot_symmetric_models_by_real_values(x, models_dict, colors_list=None):
-    #Assuming array inputs
+def plot_symmetric_models_by_real_values(x, models_dict, colors_list=None, names=None):
+    # Assuming array inputs
     if x.ndim != 1:
         print("Assuming x is a matrix, taking the upper triangle")
         x = list(x[np.triu_indices(x.shape[0], k = 1)])
 
     fig, ax = plt.subplots(1, 1, figsize=(20, 6))
-    plt.plot([0, 10000], [0, 10000], color='black', label='y=x')
+    plt.plot([0, 10**5], [0, 10**5], color='black', label='y=x')
+
+    error_comparisons = {}
     for i, (label, model) in enumerate(models_dict.items()):
         if model.ndim != 1:
             print(f"Assuming {label} is a matrix, taking the upper triangle")
@@ -333,7 +336,33 @@ def plot_symmetric_models_by_real_values(x, models_dict, colors_list=None):
         else:
             ax.scatter(x, y, label=label)
 
+        mse = mean_squared_error(x, y)
+        mae = mean_absolute_error(x, y)
+        error_comparisons[label] = {'MSE': mse, 'MAE': mae}
+
+        #Find the index of the largest difference
+        diff = np.abs(np.array(x) - np.array(y))
+        max_diff_idx = np.argmax(diff)
+        if names is not None:
+            ax.annotate(f'{names[max_diff_idx]}', (x[max_diff_idx], y[max_diff_idx]), textcoords="offset points", xytext=(-10,10), ha='center')
+
     plt.xscale('log')
     plt.yscale('log')
     plt.legend()
+
+    for model, errors in error_comparisons.items():
+        print(f'Error comparisons for {model}: MSE = {errors["MSE"]}, MAE = {errors["MAE"]}')
+
+    if len(models_dict) > 1:
+        # Compare how many times one model was closer to the real value than the others
+        for i, (label1, model1) in enumerate(models_dict.items()):
+            if model1.ndim != 1:
+                m1 = list(model1[np.triu_indices(model1.shape[0], k = 1)])
+            for j, (label2, model2) in enumerate(models_dict.items()):
+                if model2.ndim != 1:
+                        m2 = list(model2[np.triu_indices(model2.shape[0], k = 1)])
+                if i < j:
+                    closer_count = np.sum(np.abs(np.array(x) - np.array(m1)) < np.abs(np.array(x) - np.array(m2)))
+                    print(f'{label1} was closer to the real value than {label2} {closer_count} times')
+                    print(f'{label2} was closer to the real value than {label1} {len(x) - closer_count} times')
     plt.show()
