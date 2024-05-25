@@ -9,7 +9,7 @@ import networkx as nx
 
 def construct_model_args(model_name, flow_traffic_data = None, tessellation = None, **kwargs):
     """
-    Construct a model object with given parameters.
+    Check and handle the given parameters, return a simplified model parameters dictionary.
 
     if model_name == 'gravity':
         Args:
@@ -22,13 +22,20 @@ def construct_model_args(model_name, flow_traffic_data = None, tessellation = No
     """
 
     if model_name == 'gravity':
+        #Handle necessary parameters
         if tessellation is None:
             raise ValueError('Error: The gravity model requires a tessellation: a GeoDataFrame\
                               of locations with location ID, population and geometry.')
+        if type(tessellation) not in [str, gpd.GeoDataFrame]:
+            raise ValueError('Error: The tessellation parameter must be a GeoDataFrame, \
+                             or a string with the path of the file that contains it.')
         if type(tessellation) == str:
             #Assume filename
-            tessellation = gpd.read_file(tessellation)
-        
+            try:
+                tessellation = gpd.read_file(tessellation)
+            except:
+                raise ValueError('Error: Could not read the tessellation file given as GeoDataFrame.\
+                                 Might be a wrong file path, or format.')
         if 'tileID' not in tessellation.columns:
             raise ValueError('Error: The tessellation GeoDataFrame must have a tile_ID column, with this name.')
         if 'geometry' not in tessellation.columns:
@@ -36,6 +43,18 @@ def construct_model_args(model_name, flow_traffic_data = None, tessellation = No
         if 'population' not in tessellation.columns:
             raise ValueError('Error: The tessellation GeoDataFrame must have a population column, with this name.')
 
+        if flow_traffic_data not in [str, pd.DataFrame]:
+            raise ValueError('Error: The traffic data parameter must be a pandasDataFrame, or a \
+                             string with the path of the file that contains it. Try converting it.')
+        if type(flow_traffic_data) == str:
+            #Assume filename
+            try:
+                flow_traffic_data = pd.read_csv(flow_traffic_data)
+            except:
+                raise ValueError('Error: Could not read the flow_traffic_data file given as DataFrame.\
+                                     Might be a wrong file path, or file format.')
+
+        #Gather optional parameters
         gravity_type="singly constrained" #This is assumed for now, might be changed later
         deterrence_func_type = kwargs.get('deterrence_func_type', "power_law")
         deterrence_func_args = kwargs.get('deterrence_func_args', [-2.0])
@@ -48,22 +67,93 @@ def construct_model_args(model_name, flow_traffic_data = None, tessellation = No
                         'origin_exp': origin_exp,
                         'destination_exp': destination_exp,
                         'tot_outflows': tot_outflows}
-        return model_params
+        return flow_traffic_data, tessellation, model_params
     
     if model_name == 'bell':
         #Redirect to Bell modified model (modified with loss function)
         print("Redirecting to Bell modified model (modified with loss function).\
               Should have already been redirected in the run_model function.")
         args = construct_model_args('bell_modified', flow_traffic_data, tessellation, **kwargs)
+        return args
 
-    if model_name == 'bell_modified':
-        pass
+    if (model_name == 'bell_modified') | (model_name == 'bell_L1'):
+        """
+        The difference between the two is in the loss function used.
+        The latter is an approximation of L1 loss, the former is an O(L*log(L)) loss.
+        bell_modified is the default, and it grows at the as the objective function grows.
 
-    if model_name == 'bell_L1':
+        Args:
+            initial_odm_vector (numpy.ndarray | list): The initial ODM (for some models)
+
+            q (float): The q parameter of the Bell model. Default is None.
+
+            network (networkx.Graph or DiGraph): A network to use for the Bell model.
+                    Node names should be the locations, a possible attribute of nodes is 'ignore'.
+                    Edges should have the traffic data as edge weights. Possible attribute is 'time'.
+            
+            hidden_locations (list): The irrelevant locations/nodes in the network. Default is None,
+                    but if a network is given, it is assumed that the nodes with 'ignore' attribute
+                    are hidden locations. If both hidden_locations and ignored nodes are given,
+                    the union of the two is used.
+                    
+            P_algorithm (str): The algorithm to use for computing the P matrix. Currently, options
+                    are 'shortest_path' and 'shortest_time'. Default is 'shortest_path'.
+
+            extra_paths (dict): Given a dictionary where keys are tuples of nodes (pairs of locations),
+                    and values are lists of paths (lists of nodes), the model will use these paths too
+                    when computing the P matrix based on shortest paths. Default is None.
+
+        Output:
+            flow_traffic_data, tessellation, model_params: The flow data and tessellation (can differ
+            from the original: if read from a file, the returned version already contains the correct
+            format), and the needed model parameters.
+            Intended to be used with the run_*X*_model functions.
+        """
+        
+        q = kwargs.get('q', None)
+        initial_odm_vector = kwargs.get('initial_odm_vector', None)
+        network = kwargs.get('network', None)
+        #model name, flow_traffic_data, tessellation=None, network=None, initial_odm_vector = None, q=None, output_format='csv'
+
+        if type(network) == str:
+            #Assume filename
+            network = nx.read_gpickle(network)
+        elif type(network) not in [nx.Graph, nx.DiGraph]:
+            raise ValueError('Error: The network parameter must be a networkx Graph or DiGraph, or \
+                             a string with the path of the (g)pickle file that contains the network.')
+
+        if type(flow_traffic_data) == str:
+            #Assume filename
+            try:
+                flow_traffic_data = pd.read_csv(flow_traffic_data)
+            except:
+                try:
+                    flow_traffic_data = gpd.read_file(flow_traffic_data)
+                except:
+                    raise ValueError('Error: Could not read the flow_traffic_data file given as\
+                                     DataFrame or GeoDataFrame. Might be a wrong file path, or format.')
+
+        if network is None:
+            raise ValueError('Error: Model not yet implemented without input network')
+            if flow_traffic_data is None:
+                raise ValueError('Error: If a network is not explicitly given, the Bell model\
+                                requires traffic data given by flow_traffic_data.')
+        
+
+        if initial_odm_vector is None:
+            #Run gravity model to estimate initial ODM vector
+            if tessellation is None:
+                raise ValueError('Error: If the Bell model is not given an initial ODM vector\
+                                 it requires a tessellation to estimate it, which is missing.')
+            if flow_traffic_data is None:
+                raise ValueError('Error: If the Bell model is not given an initial ODM vector\
+                                    it requires traffic data to estimate it, which is missing.')
+            
         pass
+        
 
     raise ValueError(f'Error: Model {model_name} not found.Only \
-                     gravity, bell, bell_modified, bell_L1 are valid model names.')
+                     gravity, bell, bell_modified, bell_L1 are valid model name inputs.')
 
 def run_gravity_model(flows_df, tessellation, gravity_type="singly constrained",
                       deterrence_func_type = "power_law", deterrence_func_args = [-2.0],
@@ -127,6 +217,9 @@ def run_gravity_model(flows_df, tessellation, gravity_type="singly constrained",
 
     return synth_fdf
 
+def run_bell_model(bell_type, flow_traffic_data, tessellation=None, network=None, initial_odm_vector = None, q=None, output_format='csv'):
+    pass
+
 def run_model(model_name, flow_traffic_data=None, tessellation=None, output_filename=None, **kwargs):
     """
     Run a model with given data and save the output to a file.
@@ -141,57 +234,70 @@ def run_model(model_name, flow_traffic_data=None, tessellation=None, output_file
             the network parameter a graph is given, which stores the traffic data as edge attributes.
             In that case, flow_traffic_data is not needed (can be None).
         
-        output_filename (str): The name of the output file.
+        output_filename (str): The name of the output file. (Do not include the file extension.)
+            If None, the name will be ODM_{model_name}_{current_date_time}.
         
         tessellation (gpd.GeoDataFrame | str (filename)): Location ID, geometry (e.g shapely point),
-            and population data. tot_outflow is optional, computed if needed.
+            and population data. tot_outflow is optional, computed if needed. Only needed for gravity.
             See odm_gravity.py for an example.
         
         kwargs (dict): Additional optional arguments to pass to the model.
             
-            initial_odm (numpy.ndarray | list): The initial ODM (for some models)
+            initial_odm_vector (numpy.ndarray | list): The initial ODM (for some models)
                 in a vectorized form. If it is not provided but the model
                 requires it, the gravity model will be used to estimate it.
             
             output_format (str): The format to save the output in. 
                 Default is 'csv', other options are 'json' and 'txt'.
 
-            network (networkx.Graph or DiGraph): A network to use for the Bell model.
-                Nodes should be the locations, a possible attribute of nodes is 'ignore'.
-                Edges should have the traffic data as edge weights. Possible attributes
-                are 'time'
-
             Other arguments: Parameters of the given model. For example:
                 q for the Bell model, or deterrence for the gravity model.
+                See the construct_model_args function for more details.
             
+    Output:
+        Saves the output to a file with the given output_filename. Returns the O-D matrix as pandas.DataFrame.
     """
     
-    #TODO
     if model_name == 'gravity':
-        arg_dict = construct_model_args('gravity', tessellation=tessellation, flows_df = flow_traffic_data, **kwargs)
+        flow_traffic_data, tessellation, arg_dict = construct_model_args('gravity', tessellation=tessellation,
+                                                                         flows_df = flow_traffic_data, **kwargs)
         odm_df = run_gravity_model(flows_df = flow_traffic_data, tessellation = tessellation, **arg_dict)
 
     if model_name == 'bell':
         """Redirect to Bell modified model (modified with loss function)"""
         #Safest (future-proof) way to do this is to re-run this function with the modified model name.
+        #Might need to be changed later, to safeproof recursive calls.
         odm_ = run_model('bell_modified', flow_traffic_data, tessellation, output_filename, **kwargs)
         return odm_
 
     if model_name == 'bell_modified':
+        flow_traffic_data, tessellation, arg_dict = construct_model_args('bell_modified', tessellation=tessellation,
+                                                                         flows_df = flow_traffic_data, **kwargs)
+        odm_ = run_bell_model('bell_modified', flow_traffic_data, tessellation, output_filename, **arg_dict)
         pass
 
+    if model_name == 'bell_L1':
+        flow_traffic_data, tessellation, arg_dict = construct_model_args('bell_L1', tessellation=tessellation,
+                                                                         flows_df = flow_traffic_data, **kwargs)
+        odm_ = run_bell_model('bell_L1', flow_traffic_data, tessellation, output_filename, **arg_dict)
+        pass
+
+    #Save the output, return the ODM
     if output_filename is None:
+        #This may be changed to not output anything.
         import datetime
         output_filename = f'ODM_{model_name}_{datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}'
-
-    if kwargs.get('output_format', 'csv') == 'csv':
+    output_format = kwargs.get('output_format', 'csv')
+    if output_format== 'csv':
         odm_df.to_csv(output_filename + '.csv')
-    elif kwargs.get('output_format', 'csv') == 'json':
+    elif output_format == 'json':
         odm_df.to_json(output_filename + '.json')
-    elif kwargs.get('output_format', 'csv') == 'txt':
+    elif output_format == 'txt':
         with open(output_filename + '.txt', 'w') as f:
             #Other option is to use to_csv, with a defined separator
             f.write(odm_df.to_string())
+
+    return odm_df
             
 def parser(args=None):
     """
