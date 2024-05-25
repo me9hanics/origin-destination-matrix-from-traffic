@@ -18,6 +18,13 @@ def create_paths_dict(route_list):
     return extra_paths
 
 def p_matrix_from_undirected_shortest_paths(G, shortest_paths_dict):
+    """
+    Given a graph and a dictionary of shortest paths, return a matrix P of size I x J,
+    where I is the number of roads and J is the number of shortest paths.
+    The matrix is constructed based on the number of shortest paths between two locations.
+    For every two nodes, check all shortest paths. For every path, add 1/n to each road it uses.
+    If the path uses a road multiple times, the value is added multiple times.
+    """
     #Roads and locations
     roads = [tuple(sorted(edge)) for edge in G.edges()] #Sorting for consistency
     #locations = list(G.nodes())
