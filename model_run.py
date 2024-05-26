@@ -1,3 +1,4 @@
+import warnings
 import argparse
 import helper_functions
 import pandas as pd
@@ -73,8 +74,11 @@ def construct_model_args(model_name, flow_traffic_data = None, tessellation = No
         #Redirect to Bell modified model (modified with loss function)
         print("Redirecting to Bell modified model (modified with loss function).\
               Should have already been redirected in the run_model function.")
-        args = construct_model_args('bell_modified', flow_traffic_data, tessellation, **kwargs)
-        return args
+        flow_traffic_data, tessellation, args = construct_model_args('bell_modified',
+                                                                             flow_traffic_data,
+                                                                             tessellation,
+                                                                             **kwargs)
+        return flow_traffic_data, tessellation, args
 
     if (model_name == 'bell_modified') | (model_name == 'bell_L1'):
         """
@@ -95,6 +99,15 @@ def construct_model_args(model_name, flow_traffic_data = None, tessellation = No
                     but if a network is given, it is assumed that the nodes with 'ignore' attribute
                     are hidden locations. If both hidden_locations and ignored nodes are given,
                     the union of the two is used.
+                    Not yet implemented to work without a network.
+
+            find_locations (dict): Given a dictionary where keys are geographical locations (ideally
+                    points), and value includes location names + radius, 
+                    The intended use is without a given network, only with the traffic GeoDataFrame,
+                    from which a network is constructed. In this network, the added nodes (road 
+                    intersections) which are close to a certain location, within some radius, are
+                    combined into one node, representing the location with the given name.
+                    Default is None.
                     
             P_algorithm (str): The algorithm to use for computing the P matrix. Currently, options
                     are 'shortest_path' and 'shortest_time'. Default is 'shortest_path'.
@@ -113,22 +126,26 @@ def construct_model_args(model_name, flow_traffic_data = None, tessellation = No
         q = kwargs.get('q', None)
         initial_odm_vector = kwargs.get('initial_odm_vector', None)
         network = kwargs.get('network', None)
-        #model name, flow_traffic_data, tessellation=None, network=None, initial_odm_vector = None, q=None, output_format='csv'
+        hidden_locations = kwargs.get('hidden_locations', None)
+        find_locations = kwargs.get('find_locations', None)
+        P_algorithm = kwargs.get('P_algorithm', 'shortest_path')
+        extra_paths = kwargs.get('extra_paths', None)
 
+        #Handle necessary parameters based on if network is given
         if type(network) == str:
             #Assume filename
             network = nx.read_gpickle(network)
-        elif type(network) not in [nx.Graph, nx.DiGraph]:
+        elif (type(network) not in [nx.Graph, nx.DiGraph]) and (network is not None):
             raise ValueError('Error: The network parameter must be a networkx Graph or DiGraph, or \
                              a string with the path of the (g)pickle file that contains the network.')
 
         if type(flow_traffic_data) == str:
             #Assume filename
             try:
-                flow_traffic_data = pd.read_csv(flow_traffic_data)
+                flow_traffic_data = gpd.read_file(flow_traffic_data)
             except:
                 try:
-                    flow_traffic_data = gpd.read_file(flow_traffic_data)
+                    flow_traffic_data = pd.read_csv(flow_traffic_data)
                 except:
                     raise ValueError('Error: Could not read the flow_traffic_data file given as\
                                      DataFrame or GeoDataFrame. Might be a wrong file path, or format.')
@@ -138,8 +155,27 @@ def construct_model_args(model_name, flow_traffic_data = None, tessellation = No
             if flow_traffic_data is None:
                 raise ValueError('Error: If a network is not explicitly given, the Bell model\
                                 requires traffic data given by flow_traffic_data.')
+        else:
+            if hidden_locations is None:
+                #TODO Check if this works as intended
+                hidden_locations = [node for node in network.nodes if 'ignore' in network.nodes[node]]
+            else:
+                #TODO Check if this works as intended
+                hidden_locations = list(set(hidden_locations
+                                            + [node for node in network.nodes if 'ignore' in network.nodes[node]]))
+                
+            if find_locations is not None:
+                warnings.warn('Warning: hidden_locations parameter may not be used, because a network is given.')
         
+        #P matrix computation parameters
+        if P_algorithm not in ['shortest_path', 'shortest_time']:
+            raise ValueError('Error: P_algorithm must be either "shortest_path" or "shortest_time".')
+        else:
+            if (P_algorithm != 'shortest_path') and (extra_paths is not None):
+                warnings.warn('Warning: extra_paths parameter is not yet implemented to be used \
+                              with P_algorithm != "shortest_path".')
 
+        #ODM computation parameters
         if initial_odm_vector is None:
             #Run gravity model to estimate initial ODM vector
             if tessellation is None:
@@ -148,9 +184,20 @@ def construct_model_args(model_name, flow_traffic_data = None, tessellation = No
             if flow_traffic_data is None:
                 raise ValueError('Error: If the Bell model is not given an initial ODM vector\
                                     it requires traffic data to estimate it, which is missing.')
-            
-        pass
+            #Run gravity model to estimate initial ODM vector
+            warnings.warn('Warning: No initial ODM given, running gravity model to get an \
+                          initial ODM vector.')
+            g_flow_traffic_data, g_tessellation, g_arg_dict = construct_model_args('gravity',
+                                                                                    flow_traffic_data,
+                                                                                    tessellation,
+                                                                                    **kwargs)
+            initial_odm_vector = run_gravity_model(g_flow_traffic_data, g_tessellation, **g_arg_dict)
         
+        model_params = {'q': q, 'initial_odm_vector': initial_odm_vector, 'network': network,
+                        'hidden_locations': hidden_locations, 'find_locations': find_locations,
+                        'P_algorithm': P_algorithm, 'extra_paths': extra_paths}
+        
+        return flow_traffic_data, tessellation, model_params
 
     raise ValueError(f'Error: Model {model_name} not found.Only \
                      gravity, bell, bell_modified, bell_L1 are valid model name inputs.')
@@ -296,6 +343,8 @@ def run_model(model_name, flow_traffic_data=None, tessellation=None, output_file
         with open(output_filename + '.txt', 'w') as f:
             #Other option is to use to_csv, with a defined separator
             f.write(odm_df.to_string())
+    else:
+        raise ValueError('Error: Invalid output format. Choose from "csv", "json" or "txt".')
 
     return odm_df
             
@@ -312,21 +361,26 @@ def parser(args=None):
     Otherwise, command line arguments are used and args=None
     
     Example:
-    python model_run.py -m gravity -d KSH -o ODM_2022_Hungary -k output_format=csv,key2=value2
+    python model_run.py -m bell_modified -d data/roads.geojson -o ODM_2022_Hungary -k output_format=csv,key2=value2
     """
     if args is None: #Assume command line arguments
+        warnings.warn('Warning: This function accepts only string arguments now, if called from command line.\
+                    This can be an issue with non-string arguments such as dictionaries, or arrays.\
+                    Commonly, such an argument is initial_odm_vector.')
         parser_ = argparse.ArgumentParser(description='Run a model with given data and save the output to a file.')
         parser_.add_argument('-m', '--model', type=str, required=True, help='The name of the model to run.')
         parser_.add_argument('-d', '--data', type=str, required=True, help='The data to use with the model.')
         parser_.add_argument('-o', '--output', type=str, required=True, help='The name of the output file.')
-        parser_.add_argument('-k', '--kwargs', type=str, help='Additional optional arguments as key=value pairs separated by commas.')
+        parser_.add_argument('-k', '--kwargs', type=str, default='', help='Additional optional arguments as key=value pairs separated by commas.')
         args = vars(parser_.parse_args())
-    else: #Assume e.g. Jupyter notebook run, with dictionary args
+    else:#Assume e.g. Jupyter notebook run, with dictionary args
         #Will need to change this, function will be called directly with various args, without key 'kwargs'
         if 'kwargs' in args and isinstance(args['kwargs'], str):
             kv_pairs = args['kwargs'].split(',')
-            args['kwargs'] = {key: value for key, value in (pair.split('=') for pair in kv_pairs)}
-
+            try:
+                args['kwargs'] = {key: value for key, value in (pair.split('=') for pair in kv_pairs)}
+            except ValueError:
+                raise ValueError("kwargs must be in the format 'key1=value1,key2=value2,...'")
     return args['model'], args['data'], args['output'], args.get('kwargs', {})
 
 if __name__ == '__main__':
