@@ -320,14 +320,12 @@ def run_model(model_name, flow_traffic_data=None, tessellation=None, output_file
     if model_name == 'bell_modified':
         flow_traffic_data, tessellation, arg_dict = construct_model_args('bell_modified', tessellation=tessellation,
                                                                          flows_df = flow_traffic_data, **kwargs)
-        odm_ = run_bell_model('bell_modified', flow_traffic_data, tessellation, output_filename, **arg_dict)
-        pass
+        odm_df = run_bell_model('bell_modified', flow_traffic_data, tessellation, output_filename, **arg_dict)
 
     if model_name == 'bell_L1':
         flow_traffic_data, tessellation, arg_dict = construct_model_args('bell_L1', tessellation=tessellation,
                                                                          flows_df = flow_traffic_data, **kwargs)
-        odm_ = run_bell_model('bell_L1', flow_traffic_data, tessellation, output_filename, **arg_dict)
-        pass
+        odm_df = run_bell_model('bell_L1', flow_traffic_data, tessellation, output_filename, **arg_dict)
 
     #Save the output, return the ODM
     if output_filename is None:
