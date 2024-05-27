@@ -265,7 +265,26 @@ def run_gravity_model(flows_df, tessellation, gravity_type="singly constrained",
     return synth_fdf
 
 def run_bell_model(bell_type, flow_traffic_data, tessellation=None, network=None, initial_odm_vector = None, q=None, output_format='csv'):
+    if bell_type == 'bell':
+        #Redirect to Bell modified model (modified with loss function)
+        print("Redirecting to Bell modified model (modified with loss function).\
+              Should have already been redirected in the run_model function.")
+        odm_ = run_bell_model('bell_modified', flow_traffic_data, tessellation, output_filename, **kwargs)
+        #All procedures are done in the previous call, just return the ODM
+        return odm_
+    
+    #Assuming otherwise
+    if bell_type == 'bell_modified':
+        loss_func = 'modified'
+    elif bell_type == 'bell_L1':
+        loss_func = 'L1'
+    else:
+        raise ValueError('Error: Invalid Bell model type, only "bell_modified" or "bell_L1" are accepted\
+                         ("bell" redirects to "bell_modified"). This error should have been raised earlier,\
+                         in the construct_model_args function, please check what caused the issue.')
+    
     pass
+        
 
 def run_model(model_name, flow_traffic_data=None, tessellation=None, output_filename=None, **kwargs):
     """
@@ -315,6 +334,7 @@ def run_model(model_name, flow_traffic_data=None, tessellation=None, output_file
         #Safest (future-proof) way to do this is to re-run this function with the modified model name.
         #Might need to be changed later, to safeproof recursive calls.
         odm_ = run_model('bell_modified', flow_traffic_data, tessellation, output_filename, **kwargs)
+        #All procedures are done in the previous call, just return the ODM
         return odm_
 
     if model_name == 'bell_modified':
