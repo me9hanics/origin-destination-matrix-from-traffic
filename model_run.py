@@ -87,7 +87,7 @@ def construct_model_args(model_name, flow_traffic_data = None, tessellation = No
         bell_modified is the default, and it grows at the as the objective function grows.
 
         Args:
-            initial_odm_vector (numpy.ndarray | list): The initial ODM (for some models)
+            initial_odm_vector (numpy.ndarray | array_like): The initial ODM (for some models)
 
             q (float): The q parameter of the Bell model. Default is None.
 
@@ -102,7 +102,8 @@ def construct_model_args(model_name, flow_traffic_data = None, tessellation = No
                     Not yet implemented to work without a network.
 
             find_locations (dict): Given a dictionary where keys are geographical locations (ideally
-                    points), and value includes location names + radius, 
+                    points), and value includes location names + radius, the model will find the nodes
+                    in the network that are within the given radius and combine them into one node.
                     The intended use is without a given network, only with the traffic GeoDataFrame,
                     from which a network is constructed. In this network, the added nodes (road 
                     intersections) which are close to a certain location, within some radius, are
@@ -192,7 +193,24 @@ def construct_model_args(model_name, flow_traffic_data = None, tessellation = No
                                                                                     tessellation,
                                                                                     **kwargs)
             initial_odm_vector = run_gravity_model(g_flow_traffic_data, g_tessellation, **g_arg_dict)
+        else:
+            try:
+                initial_odm_vector = np.array(initial_odm_vector)
+            except:
+                raise ValueError('Error: Could not convert initial_odm_vector to an np.array, please\
+                                 try giving the variable as a numpy array or a list.')
         
+        if q is None:
+            q = (initial_odm_vector+0.001) / np.sum(initial_odm_vector+0.001) #Avoid division by zero
+        else:
+            try:
+                q = np.array(q)
+            except:
+                raise ValueError('Error: Could not convert q to an np.array, please try giving the\
+                                 variable as a numpy array or a list.')
+            if q.size != initial_odm_vector.size:
+                raise ValueError('Error: q must have the same size as the (initial) ODM vector.')
+
         model_params = {'q': q, 'initial_odm_vector': initial_odm_vector, 'network': network,
                         'hidden_locations': hidden_locations, 'find_locations': find_locations,
                         'P_algorithm': P_algorithm, 'extra_paths': extra_paths}
@@ -264,7 +282,52 @@ def run_gravity_model(flows_df, tessellation, gravity_type="singly constrained",
 
     return synth_fdf
 
-def run_bell_model(bell_type, flow_traffic_data, tessellation=None, network=None, initial_odm_vector = None, q=None, output_format='csv'):
+def run_bell_model(bell_type, flow_traffic_data, tessellation=None, initial_odm_vector = None,
+                    q=None, network=None, hidden_locations=None, find_locations=None,
+                    P_algorithm='shortest_path', extra_paths=None):
+    """
+    Run the Bell model with given data and parameters.
+    
+    Args:
+    
+        bell_type (str): The type of Bell model to run. Can be 'bell_modified' or 'bell_L1'.
+        
+        flow_traffic_data (gpd.GeoDataFrame): Traffic data on roads, with columns 'origin', 'destination',
+            'flow', and 'geometry'. If a network is given, this parameter is not needed. Default is None.
+            
+        tessellation (gpd.GeoDataFrame): Location ID, geometry (e.g shapely point), and population data.
+            Only required when the model needs to estimate the initial ODM, which it does with a gravity
+            model. In this case, the tot_outflow column can be given, optionally. Default is None.
+
+        initial_odm_vector (numpy.ndarray | array_like): The initial ODM (for some models) in a
+            vectorized form. If it is not provided but the model requires it, the gravity model
+            will be used to estimate it.
+
+        q (float): The q parameter of the Bell model. Default is None.
+
+        network (networkx.Graph or DiGraph): A network to use for the Bell model.
+
+        hidden_locations (list): The irrelevant locations/nodes in the network. Default is None,
+
+        find_locations (dict): Given a dictionary where keys are geographical locations (ideally
+            points), and value includes location names + radius, the model will find the nodes
+            in the network that are within the given radius and combine them into one node.
+            The intended use is without a given network, only with the traffic GeoDataFrame,
+            from which a network is constructed. In this network, the added nodes (road
+            intersections) which are close to a certain location, within some radius, are
+            combined into one node, representing the location with the given name.
+            Default is None.
+
+        P_algorithm (str): The algorithm to use for computing the P matrix. Currently, options
+            are 'shortest_path' and 'shortest_time'. Default is 'shortest_path'.
+
+        extra_paths (dict): Given a dictionary where keys are tuples of nodes (pairs of locations),
+            and values are lists of paths (lists of nodes), the model will use these paths too
+            when computing the P matrix based on shortest paths. Default is None.
+
+    Output:
+        The O-D matrix as a pandas.DataFrame.
+    """
     if bell_type == 'bell':
         #Redirect to Bell modified model (modified with loss function)
         print("Redirecting to Bell modified model (modified with loss function).\
@@ -283,6 +346,19 @@ def run_bell_model(bell_type, flow_traffic_data, tessellation=None, network=None
                          ("bell" redirects to "bell_modified"). This error should have been raised earlier,\
                          in the construct_model_args function, please check what caused the issue.')
     
+    if network is None:
+        raise ValueError('Error: Not yet implemented to run the Bell model without a network.\
+                         This should have been caught earlier, in the construct_model_args function.')
+        #Relevant variables for creating a network: flow_traffic_data, 
+    
+    #Assuming we now have a network
+    #TODO
+
+    #P matrix computation
+    #TODO
+
+    #Run the Bell model
+    #TODO
     pass
         
 
@@ -309,7 +385,7 @@ def run_model(model_name, flow_traffic_data=None, tessellation=None, output_file
         
         kwargs (dict): Additional optional arguments to pass to the model.
             
-            initial_odm_vector (numpy.ndarray | list): The initial ODM (for some models)
+            initial_odm_vector (numpy.ndarray | array_like): The initial ODM (for some models)
                 in a vectorized form. If it is not provided but the model
                 requires it, the gravity model will be used to estimate it.
             
