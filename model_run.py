@@ -117,6 +117,8 @@ def construct_model_args(model_name, flow_traffic_data = None, tessellation = No
                     and values are lists of paths (lists of nodes), the model will use these paths too
                     when computing the P matrix based on shortest paths. Default is None.
 
+            #TODO: Adding the P matrix explicitly as a parameter, if it is already computed.
+
         Output:
             flow_traffic_data, tessellation, model_params: The flow data and tessellation (can differ
             from the original: if read from a file, the returned version already contains the correct
@@ -131,6 +133,7 @@ def construct_model_args(model_name, flow_traffic_data = None, tessellation = No
         find_locations = kwargs.get('find_locations', None)
         P_algorithm = kwargs.get('P_algorithm', 'shortest_path')
         extra_paths = kwargs.get('extra_paths', None)
+        #TODO: Adding the P matrix explicitly as a parameter, if it is already computed.
 
         #Handle necessary parameters based on if network is given
         if type(network) == str:
@@ -157,6 +160,8 @@ def construct_model_args(model_name, flow_traffic_data = None, tessellation = No
                 raise ValueError('Error: If a network is not explicitly given, the Bell model\
                                 requires traffic data given by flow_traffic_data.')
         else:
+            #Possible check: if P_algorithm == 'shortest_time' & time attribute not in edges 
+
             if hidden_locations is None:
                 #TODO Check if this works as intended
                 hidden_locations = [node for node in network.nodes if 'ignore' in network.nodes[node]]
@@ -325,6 +330,8 @@ def run_bell_model(bell_type, flow_traffic_data, tessellation=None, initial_odm_
             and values are lists of paths (lists of nodes), the model will use these paths too
             when computing the P matrix based on shortest paths. Default is None.
 
+        #TODO: Adding the P matrix explicitly as a parameter, if it is already computed.
+                
     Output:
         The O-D matrix as a pandas.DataFrame.
     """
@@ -349,13 +356,36 @@ def run_bell_model(bell_type, flow_traffic_data, tessellation=None, initial_odm_
     if network is None:
         raise ValueError('Error: Not yet implemented to run the Bell model without a network.\
                          This should have been caught earlier, in the construct_model_args function.')
-        #Relevant variables for creating a network: flow_traffic_data, 
+        #Relevant variables for the network: flow_traffic_data, hidden_locations, find_locations, extra_paths
+        #First, construct the network 
+        #TODO
+        #Then, if find_locations is given, look for nodes near locations and combine the nodes into one,
+            #ignore = False for the new node, the node's name will be the location name.
+            #If it is not given, continue.
+        #If given hidden_locations, ignore = True for those nodes. If not given, either all nodes are
+            #in the analysis, or if find_locations is given, only the "location nodes" are not ignored.
+            #Finally, update hidden_locations as the set of ignored nodes.
     
     #Assuming we now have a network
-    #TODO
+    #(Assuming that "ignore" attribute also was used in the function construct_model_args to get 
+        #hidden_locations, so that step is not repeated here)
+    if (P_algorithm == 'shortest_time') and ('time' not in network.edges):
+        print("No time attribute in the network edges, try adding time attribute")
+        #TODO
+        pass
+
 
     #P matrix computation
     #TODO
+    if P_algorithm != 'shortest_path':
+        raise ValueError('Error: Currently, only "shortest_path" is implemented for P_algorithm.')
+    if P_algorithm == 'shortest_path':
+        #Compute the P matrix based on shortest paths
+        v, P, odm, extra = helper_functions.v_P_odmbp_shortest_paths(network, hidden_locations=hidden_locations,
+                                                                     extra_paths_dict = extra_paths)
+        print(f"Computed the P matrix based on shortest paths. Size of road traffic vector: {v.shape[0]},\
+              size of the ODM vector: {odm.shape[0]}.")
+        pass
 
     #Run the Bell model
     #TODO
