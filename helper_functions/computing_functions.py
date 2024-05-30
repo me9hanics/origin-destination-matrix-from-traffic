@@ -343,17 +343,22 @@ def odm_location_names_df_to_odm_2d_symmetric(odm_df, places_sorted=None):
         odm_2d[places_sorted.index(destination), places_sorted.index(origin)] = row['flow']
     return odm_2d
 
-def sort_odm_loc_names_df(odm_df, ordered_o_d_tuple_list):
+def sort_odm_loc_names_df(odm_df, ordered_o_d_tuple_list, return_ordering=False):
     #Column with the index of each (origin, destination) pair in the ordered list
     odm_df['sort_key'] = None
     for i, (o, d) in enumerate(ordered_o_d_tuple_list):
         odm_df.loc[(odm_df['origin'] == o) & (odm_df['destination'] == d), 'sort_key'] = i
     #odm_df['sort_key'] = [ordered_o_d_tuple_list.index((o, d)) for o, d in zip(odm_df['origin'], odm_df['destination'])]
     odm_df = odm_df[odm_df['sort_key'].notnull()]
-    
+    ordering = odm_df['sort_key'].values
     sorted_df = odm_df.sort_values(by='sort_key')
+    
     sorted_df = sorted_df.drop(columns='sort_key')
-    return sorted_df
+    
+    if return_ordering:
+        return sorted_df, ordering
+    else:
+        return sorted_df
 
 
 ###################### Plotting, evaluation and other functions ######################
