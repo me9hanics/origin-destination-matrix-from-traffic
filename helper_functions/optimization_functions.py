@@ -5,7 +5,9 @@ from scipy.optimize import minimize, Bounds, LinearConstraint
 
 ##################### Helper functions #####################
 def log_factorial(n):
-    #Roughly x*log(x) - x (their derivatives are asymptotically equal) - might as well use the simpler one in some cases
+    """Roughly n*log(n) - n (their derivatives are asymptotically equal)
+        - might as well use the simpler formula in some cases.
+    """
     return np.sum(np.log(np.arange(1, n+1)))
 
 def log_factorial_float(x):
@@ -136,6 +138,18 @@ def bounds(lower_bound, upper_bound):
 def optimize_odm(model_function, odm_initial, constraints_linear, runs=10+1, model_func_args=None, bounds=None, model_derivative=None, verbose=True, return_last=True):
     """
     Optimize the ODM using the given model function and constraints.
+
+    Args:
+        model_function (function): The function to optimize (e.g. F_Bell).
+        odm_initial (np.array): The initial ODM, where the optimization starts.
+        constraints_linear (LinearConstraint): The linear constraints, usually v = Pt.
+        runs (int): The number of optimization runs to perform. Default is 11.
+        model_func_args (dict): Additional arguments for the model function. Default is None.
+        bounds (Bounds): The bounds for the optimization. Default is None.
+        model_derivative (function): The derivative of the model function. Default is None.
+        verbose (bool): Whether to print the optimization messages. Default is True.
+        return_last (bool): Whether to return only the last optimized ODM. If False, returns all
+            previous ODM estimations too. Default is True.
     """
 
     if model_func_args is not None: #Required for the lossful Bell models: P_modified_loss, v_modified_loss, c
