@@ -101,6 +101,8 @@ def construct_model_args(model_name, flow_traffic_data = None, tessellation = No
             q (float): The q parameter of the Bell model. Default is None. If given, must be sorted in
                 the same order as the initial ODM DF. If None, the initial ODM is used to estimate it.
 
+            c (float): The loss function coefficient. Default is 0.05.
+
             network (networkx.Graph or DiGraph): A network to use for the Bell model.
                     Node names should be the locations, a possible attribute of nodes is 'ignore'.
                     Edges should have the traffic data as edge weights. Possible attribute is 'time'.
@@ -136,9 +138,11 @@ def construct_model_args(model_name, flow_traffic_data = None, tessellation = No
             Intended to be used with the run_*X*_model functions.
         """
         
-        q = kwargs.get('q', None)
+        #Gather parameters
         initial_odm_df = kwargs.get('initial_odm_df', None)
         initial_odm_vector = kwargs.get('initial_odm_vector', None)
+        q = kwargs.get('q', None)
+        c = kwargs.get('c', 0.05)
         network = kwargs.get('network', None)
         hidden_locations = kwargs.get('hidden_locations', None)
         find_locations = kwargs.get('find_locations', None)
@@ -254,7 +258,12 @@ def construct_model_args(model_name, flow_traffic_data = None, tessellation = No
             if q.shape != initial_odm_df['flow'].shape: #Could use .size instead of .shape
                 raise ValueError('Error: q must have the same size (shape) as the (initial) ODM.')
 
-        model_params = {'q': q, 'initial_odm_df': initial_odm_df, 'network': network,
+        if type(c) not in [int, float]:
+            raise ValueError('Error: The loss function coefficient c must be a number.')
+        if c < 0:
+            warnings.warn('Warning: The loss function coefficient c is negative, this may lead to bad results.')
+        
+        model_params = {'initial_odm_df': initial_odm_df, 'network': network, 'q': q, 'c': c,
                         'hidden_locations': hidden_locations, 'find_locations': find_locations,
                         'P_algorithm': P_algorithm, 'extra_paths': extra_paths,
                         'initial_odm_vector': initial_odm_vector}
@@ -327,7 +336,7 @@ def run_gravity_model(flows_df, tessellation, gravity_type="singly constrained",
     return synth_fdf
 
 def run_bell_model(bell_type, flow_traffic_data, tessellation=None, initial_odm_df = None,
-                    q=None, network=None, hidden_locations=None, find_locations=None,
+                    q=None, c=0.05, network=None, hidden_locations=None, find_locations=None,
                     P_algorithm='shortest_path', extra_paths=None, initial_odm_vector = None):
     """
     Run the Bell model with given data and parameters.
@@ -355,6 +364,8 @@ def run_bell_model(bell_type, flow_traffic_data, tessellation=None, initial_odm_
             Default is None.
 
         q (float): The q parameter of the Bell model. Default is None.
+
+        c (float): The loss function coefficient. Default is 0.05.
 
         network (networkx.Graph or DiGraph): A network to use for the Bell model.
 
@@ -385,9 +396,9 @@ def run_bell_model(bell_type, flow_traffic_data, tessellation=None, initial_odm_
         #Redirect to Bell modified model (modified with loss function)
         print("Redirecting to Bell modified model (modified with loss function).\
               Should have already been redirected in the run_model function.")
-        odm_ = run_bell_model('bell_modified', flow_traffic_data, tessellation, initial_odm_df, q,
-                              network, hidden_locations, find_locations, P_algorithm, extra_paths,
-                              initial_odm_vector)
+        odm_ = run_bell_model('bell_modified', flow_traffic_data, tessellation, initial_odm_df,
+                              q, c, network, hidden_locations, find_locations, P_algorithm,
+                              extra_paths, initial_odm_vector)
         #All procedures are done in the previous call, just return the ODM
         return odm_
     
@@ -451,7 +462,7 @@ def run_bell_model(bell_type, flow_traffic_data, tessellation=None, initial_odm_
     odm = helper_functions.optimize_odm(model_function = objective_function, odm_initial = odm_initial,
                                         model_derivative=objective_function_gradient, runs=101,
                                         constraints_linear = helper_functions.odm_linear_constraint(P_indep, v_indep),
-                                        model_func_args = {'q': q, 'P_modified_loss': P_dep, 'v_modified_loss': v_dep},
+                                        model_func_args = {'q': q, 'c': c, 'P_modified_loss': P_dep, 'v_modified_loss': v_dep},
                                         bounds = helper_functions.bounds(0.001, np.inf), verbose=False, return_last=True
                                         )
     odm_df = pd.DataFrame({'origin': initial_odm_sorted['origin'],
