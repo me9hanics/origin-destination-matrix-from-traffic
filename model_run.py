@@ -405,12 +405,12 @@ def run_bell_model(bell_type, flow_traffic_data, tessellation=None, initial_odm_
     #Assuming otherwise
     if bell_type == 'bell_modified':
         loss_func = 'modified'
-        objective_function = helper_functions.F_Bell_modified
-        objective_function_gradient = helper_functions.F_Bell_modified_gradient
+        objective_function = helper_functions.F_Bell_modified_optimize
+        objective_function_gradient = helper_functions.F_Bell_modified_optimize_gradient
     elif bell_type == 'bell_L1':
         loss_func = 'L1'
-        objective_function = helper_functions.F_Bell_L1_approximation
-        objective_function_gradient = helper_functions.F_Bell_L1_approximation_gradient
+        objective_function = helper_functions.F_Bell_L1_approximation_optimize
+        objective_function_gradient = helper_functions.F_Bell_L1_approximation_optimize_gradient
     else:
         raise ValueError('Error: Invalid Bell model type, only "bell_modified" or "bell_L1" are accepted\
                          ("bell" redirects to "bell_modified"). This error should have been raised earlier,\
