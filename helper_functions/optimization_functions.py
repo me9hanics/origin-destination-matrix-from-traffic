@@ -1,7 +1,7 @@
 import numpy as np
 import math
 from scipy.optimize import minimize, Bounds, LinearConstraint
-
+import functools
 
 ##################### Helper functions #####################
 def log_factorial(n):
@@ -151,11 +151,10 @@ def optimize_odm(model_function, odm_initial, constraints_linear, runs=10+1, mod
         return_last (bool): Whether to return only the last optimized ODM. If False, returns all
             previous ODM estimations too. Default is True.
     """
-
+    
     if model_func_args is not None: #Required for the lossful Bell models: P_modified_loss, v_modified_loss, c
-        model_function = lambda x: model_function(x, **model_func_args)
-        model_derivative = lambda x: model_derivative(x, **model_func_args)
-
+        model_function = functools.partial(model_function, **model_func_args)
+        model_derivative = functools.partial(model_derivative, **model_func_args)
 
     result = minimize(model_function, odm_initial, constraints=constraints_linear, bounds=bounds, jac = model_derivative)
     optimal_odm = result.x
@@ -181,10 +180,11 @@ def optimize_odm(model_function, odm_initial, constraints_linear, runs=10+1, mod
             if verbose:
                 print(f'Run {i}: Positive directional derivative for linesearch - likely hit a local minimum.')
             break
-        if optimal_odm_list[-2].astype(int).tolist() == optimal_odm.astype(int).tolist():
-            if verbose:
-                print(f'Run {i}: Optimal ODM did not change substantially (all changes < 1) - likely hit a local minimum.')
-            break
+        if len(optimal_odm_list) > 1:
+            if optimal_odm_list[-2].astype(int).tolist() == optimal_odm.astype(int).tolist():
+                if verbose:
+                    print(f'Run {i}: Optimal ODM did not change substantially (all changes < 1) - likely hit a local minimum.')
+                break
         
     if return_last:
         return optimal_odm_list[-1]
