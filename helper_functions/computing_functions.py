@@ -350,7 +350,7 @@ def sort_odm_loc_names_df(odm_df, ordered_o_d_tuple_list, return_ordering=False)
         odm_df.loc[(odm_df['origin'] == o) & (odm_df['destination'] == d), 'sort_key'] = i
     #odm_df['sort_key'] = [ordered_o_d_tuple_list.index((o, d)) for o, d in zip(odm_df['origin'], odm_df['destination'])]
     odm_df = odm_df[odm_df['sort_key'].notnull()]
-    ordering = odm_df['sort_key'].values
+    ordering = np.array(odm_df['sort_key'].values).astype(int)
     sorted_df = odm_df.sort_values(by='sort_key')
     
     sorted_df = sorted_df.drop(columns='sort_key')
