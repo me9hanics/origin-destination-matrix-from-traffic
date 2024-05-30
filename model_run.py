@@ -82,14 +82,24 @@ def construct_model_args(model_name, flow_traffic_data = None, tessellation = No
 
     if (model_name == 'bell_modified') | (model_name == 'bell_L1'):
         """
-        The difference between the two is in the loss function used.
-        The latter is an approximation of L1 loss, the former is an O(L*log(L)) loss.
+        The difference between the two is in the loss function used. \
+        The latter is an approximation of L1 loss, the former is an O(L*log(L)) loss. \
         bell_modified is the default, and it grows at the as the objective function grows.
 
         Args:
-            initial_odm_vector (numpy.ndarray | array_like): The initial ODM (for some models)
+            initial_odm_df (pd.DataFrame): The initial ODM (for some models) in a DataFrame form: columns
+                have to be 'origin', 'destination', 'flow'. Recommended to use for consistency. If it is
+                not provided and initial_odm_vector is None, the gravity model will be used to estimate it.
+                Default is None.
+            
+            #TODO: Take out initial_odm_vector
+            initial_odm_vector (numpy.ndarray | array_like): Unrecommended (see above): The initial ODM
+                (for some models) in a vectorized form. Recommended usage is to use initial_odm_df.
+                If neither of the two are provided, the gravity model will be used to estimate them.
+                Default is None.
 
-            q (float): The q parameter of the Bell model. Default is None.
+            q (float): The q parameter of the Bell model. Default is None. If given, must be sorted in
+                the same order as the initial ODM DF. If None, the initial ODM is used to estimate it.
 
             network (networkx.Graph or DiGraph): A network to use for the Bell model.
                     Node names should be the locations, a possible attribute of nodes is 'ignore'.
@@ -127,6 +137,7 @@ def construct_model_args(model_name, flow_traffic_data = None, tessellation = No
         """
         
         q = kwargs.get('q', None)
+        initial_odm_df = kwargs.get('initial_odm_df', None)
         initial_odm_vector = kwargs.get('initial_odm_vector', None)
         network = kwargs.get('network', None)
         hidden_locations = kwargs.get('hidden_locations', None)
@@ -151,8 +162,33 @@ def construct_model_args(model_name, flow_traffic_data = None, tessellation = No
                 try:
                     flow_traffic_data = pd.read_csv(flow_traffic_data)
                 except:
-                    raise ValueError('Error: Could not read the flow_traffic_data file given as\
+                    raise ValueError('Error: Could not read the flow_traffic_data file given as \
                                      DataFrame or GeoDataFrame. Might be a wrong file path, or format.')
+        elif type(flow_traffic_data) not in [pd.DataFrame, gpd.GeoDataFrame] and flow_traffic_data is not None:
+            raise ValueError('Error: The traffic data parameter must be a GeoDataFrame, or a DataFrame, \
+                             or a string with the path of the file that contains it.')
+
+        if type(tessellation) == str:
+            #Assume filename
+            try:
+                tessellation = gpd.read_file(tessellation)
+            except:
+                raise ValueError('Error: Could not read the tessellation file given as GeoDataFrame.\
+                                 Might be a wrong file path, or format.')
+        elif type(tessellation) is not gpd.GeoDataFrame and tessellation is not None:
+            raise ValueError('Error: The tessellation parameter must be a GeoDataFrame, or a string \
+                             with the path of the file that contains it.')
+
+        if type(initial_odm_df) == str:
+            #Assume filename
+            try:
+                initial_odm_df = pd.read_csv(initial_odm_df)
+            except:
+                raise ValueError('Error: Could not read the initial_odm_df file given as DataFrame.\
+                                 Might be a wrong file path, or format.')
+        elif type(initial_odm_df) is not pd.DataFrame and initial_odm_df is not None:
+            raise ValueError('Error: The initial_odm_df parameter must be a DataFrame, or a string \
+                             with the path of the file that contains it.')
 
         if network is None:
             raise ValueError('Error: Model not yet implemented without input network')
@@ -171,7 +207,7 @@ def construct_model_args(model_name, flow_traffic_data = None, tessellation = No
                                             + [node for node in network.nodes if 'ignore' in network.nodes[node]]))
                 
             if find_locations is not None:
-                warnings.warn('Warning: hidden_locations parameter may not be used, because a network is given.')
+                warnings.warn('Warning: find_locations parameter may not be used, because a network is given.')
         
         #P matrix computation parameters
         if P_algorithm not in ['shortest_path', 'shortest_time']:
@@ -182,13 +218,13 @@ def construct_model_args(model_name, flow_traffic_data = None, tessellation = No
                               with P_algorithm != "shortest_path".')
 
         #ODM computation parameters
-        if initial_odm_vector is None:
+        if initial_odm_df is None:
             #Run gravity model to estimate initial ODM vector
             if tessellation is None:
-                raise ValueError('Error: If the Bell model is not given an initial ODM vector\
+                raise ValueError('Error: If the Bell model is not given an initial ODM DataFrame\
                                  it requires a tessellation to estimate it, which is missing.')
             if flow_traffic_data is None:
-                raise ValueError('Error: If the Bell model is not given an initial ODM vector\
+                raise ValueError('Error: If the Bell model is not given an initial ODM DataFrame\
                                     it requires traffic data to estimate it, which is missing.')
             #Run gravity model to estimate initial ODM vector
             warnings.warn('Warning: No initial ODM given, running gravity model to get an \
@@ -197,28 +233,31 @@ def construct_model_args(model_name, flow_traffic_data = None, tessellation = No
                                                                                     flow_traffic_data,
                                                                                     tessellation,
                                                                                     **kwargs)
-            initial_odm_vector = run_gravity_model(g_flow_traffic_data, g_tessellation, **g_arg_dict)
+            initial_odm_df = run_gravity_model(g_flow_traffic_data, g_tessellation, **g_arg_dict)
         else:
-            try:
-                initial_odm_vector = np.array(initial_odm_vector)
-            except:
-                raise ValueError('Error: Could not convert initial_odm_vector to an np.array, please\
-                                 try giving the variable as a numpy array or a list.')
+            if ('origin' not in initial_odm_df.columns) or ('destination' not in initial_odm_df.columns):
+                raise ValueError('Error: The initial_odm_df must have columns "origin" and "destination".')
+            if 'flow' not in initial_odm_df.columns:
+                raise ValueError('Error: The initial_odm_df must have a column "flow".')
+            if initial_odm_vector is not None:
+                warnings.warn('Warning: Both initial_odm_df and initial_odm_vector are given.\
+                              Using initial_odm_df, ignoring the vector.')
         
         if q is None:
-            q = (initial_odm_vector+0.001) / np.sum(initial_odm_vector+0.001) #Avoid division by zero
+            q = (initial_odm_df['flow']+0.001) / np.sum(initial_odm_df['flow']+0.001) #Avoid division by zero
         else:
             try:
                 q = np.array(q)
             except:
                 raise ValueError('Error: Could not convert q to an np.array, please try giving the\
                                  variable as a numpy array or a list.')
-            if q.size != initial_odm_vector.size:
-                raise ValueError('Error: q must have the same size as the (initial) ODM vector.')
+            if q.shape != initial_odm_df['flow'].shape: #Could use .size instead of .shape
+                raise ValueError('Error: q must have the same size (shape) as the (initial) ODM.')
 
-        model_params = {'q': q, 'initial_odm_vector': initial_odm_vector, 'network': network,
+        model_params = {'q': q, 'initial_odm_df': initial_odm_df, 'network': network,
                         'hidden_locations': hidden_locations, 'find_locations': find_locations,
-                        'P_algorithm': P_algorithm, 'extra_paths': extra_paths}
+                        'P_algorithm': P_algorithm, 'extra_paths': extra_paths,
+                        'initial_odm_vector': initial_odm_vector}
         
         return flow_traffic_data, tessellation, model_params
 
@@ -287,9 +326,9 @@ def run_gravity_model(flows_df, tessellation, gravity_type="singly constrained",
 
     return synth_fdf
 
-def run_bell_model(bell_type, flow_traffic_data, tessellation=None, initial_odm_vector = None,
+def run_bell_model(bell_type, flow_traffic_data, tessellation=None, initial_odm_df = None,
                     q=None, network=None, hidden_locations=None, find_locations=None,
-                    P_algorithm='shortest_path', extra_paths=None):
+                    P_algorithm='shortest_path', extra_paths=None, initial_odm_vector = None):
     """
     Run the Bell model with given data and parameters.
     
@@ -304,9 +343,16 @@ def run_bell_model(bell_type, flow_traffic_data, tessellation=None, initial_odm_
             Only required when the model needs to estimate the initial ODM, which it does with a gravity
             model. In this case, the tot_outflow column can be given, optionally. Default is None.
 
-        initial_odm_vector (numpy.ndarray | array_like): The initial ODM (for some models) in a
-            vectorized form. If it is not provided but the model requires it, the gravity model
-            will be used to estimate it.
+        initial_odm_df (pd.DataFrame): The initial ODM (for some models) in a DataFrame form: columns
+            have to be 'origin', 'destination', 'flow'. Recommended to use for consistency. If it is
+            not provided and initial_odm_vector is None, the gravity model will be used to estimate it.
+            Default is None.
+
+        #TODO: Remove initial_odm_vector
+        initial_odm_vector (numpy.ndarray | array_like): Unrecommended (see above): The initial ODM
+            (for some models) in a vectorized form. Recommended usage is to use initial_odm_df.
+            If neither of the two are provided, the gravity model will be used to estimate them.
+            Default is None.
 
         q (float): The q parameter of the Bell model. Default is None.
 
@@ -339,15 +385,21 @@ def run_bell_model(bell_type, flow_traffic_data, tessellation=None, initial_odm_
         #Redirect to Bell modified model (modified with loss function)
         print("Redirecting to Bell modified model (modified with loss function).\
               Should have already been redirected in the run_model function.")
-        odm_ = run_bell_model('bell_modified', flow_traffic_data, tessellation, output_filename, **kwargs)
+        odm_ = run_bell_model('bell_modified', flow_traffic_data, tessellation, initial_odm_df, q,
+                              network, hidden_locations, find_locations, P_algorithm, extra_paths,
+                              initial_odm_vector)
         #All procedures are done in the previous call, just return the ODM
         return odm_
     
     #Assuming otherwise
     if bell_type == 'bell_modified':
         loss_func = 'modified'
+        objective_function = helper_functions.F_Bell_modified
+        objective_function_gradient = helper_functions.F_Bell_modified_gradient
     elif bell_type == 'bell_L1':
         loss_func = 'L1'
+        objective_function = helper_functions.F_Bell_L1_approximation
+        objective_function_gradient = helper_functions.F_Bell_L1_approximation_gradient
     else:
         raise ValueError('Error: Invalid Bell model type, only "bell_modified" or "bell_L1" are accepted\
                          ("bell" redirects to "bell_modified"). This error should have been raised earlier,\
@@ -374,22 +426,38 @@ def run_bell_model(bell_type, flow_traffic_data, tessellation=None, initial_odm_
         #TODO
         pass
 
-
     #P matrix computation
-    #TODO
     if P_algorithm != 'shortest_path':
         raise ValueError('Error: Currently, only "shortest_path" is implemented for P_algorithm.')
     if P_algorithm == 'shortest_path':
         #Compute the P matrix based on shortest paths
-        v, P, odm, extra = helper_functions.v_P_odmbp_shortest_paths(network, hidden_locations=hidden_locations,
-                                                                     extra_paths_dict = extra_paths)
+        v, P, odm_blueprint, extra = helper_functions.v_P_odmbp_shortest_paths(network,
+                                                                               hidden_locations = hidden_locations,
+                                                                               extra_paths_dict = extra_paths)
         print(f"Computed the P matrix based on shortest paths. Size of road traffic vector: {v.shape[0]},\
-              size of the ODM vector: {odm.shape[0]}.")
-        pass
-
+              size of the ODM vector: {odm_blueprint.shape[0]}.")
+    
     #Run the Bell model
-    #TODO
-    pass
+    #Synch the initial_odm_df with the odm_blueprint
+    initial_odm_sorted = helper_functions.sort_odm_loc_names_df(initial_odm_df, extra['location_pairs'])
+    odm_initial = np.array(initial_odm_sorted['flow'])
+
+    #Something to consider: reducing the P matrix to maximum rank size
+    dep, indep = helper_functions.find_dependent_rows(P, return_independent=True)
+    dep = list(set([x for group in dep for x in group]))
+
+    P_dep = P[dep, :]; v_dep = v[dep]
+    P_indep = P[indep, :]; v_indep = v[indep]
+    odm = helper_functions.optimize_odm(model_function = objective_function, odm_initial = odm_initial,
+                                        model_derivative=objective_function_gradient, runs=101,
+                                        constraints_linear = helper_functions.odm_linear_constraint(P_indep, v_indep),
+                                        model_func_args = {'q': q, 'P_modified_loss': P_dep, 'v_modified_loss': v_dep},
+                                        bounds = helper_functions.bounds(0.001, np.inf), verbose=False, return_last=True
+                                        )
+    odm_df = pd.DataFrame({'origin': initial_odm_sorted['origin'],
+                           'destination': initial_odm_sorted['destination'],
+                           'flow': odm})
+    return odm_df
         
 
 def run_model(model_name, flow_traffic_data=None, tessellation=None, output_filename=None, **kwargs):
