@@ -299,6 +299,11 @@ def plot_models(models_dict, x_labels=None):
 def evaluate_model(predicted, real, model_name="model", verbose=True):
     from scipy.stats import pearsonr
     from sklearn.metrics import mean_squared_error
+
+    if type(predicted) in [list, pd.Series]:
+        predicted = np.array(predicted)
+    if type(real) in [list, pd.Series]:
+        real = np.array(real)
     mse = mean_squared_error(real.flatten(), predicted.flatten())
     corr, _ = pearsonr(real.flatten(), predicted.flatten())
 
