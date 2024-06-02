@@ -1,6 +1,7 @@
+import helper_functions
 import warnings
 import argparse
-import helper_functions
+import pickle
 import pandas as pd
 import geopandas as gpd
 import numpy as np
@@ -62,6 +63,8 @@ def construct_model_args(model_name, flow_traffic_data = None, tessellation = No
         origin_exp = kwargs.get('origin_exp', 1.0)
         destination_exp = kwargs.get('destination_exp', 1.0)
         tot_outflows = tessellation['tot_outflow'] if 'tot_outflow' in tessellation.columns else None
+
+        #TODO Add conversions
         model_params = {'gravity_type': gravity_type, # 'singly constrained'
                         'deterrence_func_type': deterrence_func_type,
                         'deterrence_func_args': deterrence_func_args,
@@ -103,6 +106,8 @@ def construct_model_args(model_name, flow_traffic_data = None, tessellation = No
 
             c (float): The loss function coefficient. Default is 0.05.
 
+            upper_bound (float | int): The upper bound for the ODM values. Default is 100000.
+
             network (networkx.Graph or DiGraph): A network to use for the Bell model.
                     Node names should be the locations, a possible attribute of nodes is 'ignore'.
                     Edges should have the traffic data as edge weights. Possible attribute is 'time'.
@@ -143,6 +148,7 @@ def construct_model_args(model_name, flow_traffic_data = None, tessellation = No
         initial_odm_vector = kwargs.get('initial_odm_vector', None)
         q = kwargs.get('q', None)
         c = kwargs.get('c', 0.05)
+        upper_bound = kwargs.get('upper_bound', 100000)
         network = kwargs.get('network', None)
         hidden_locations = kwargs.get('hidden_locations', None)
         find_locations = kwargs.get('find_locations', None)
@@ -153,7 +159,8 @@ def construct_model_args(model_name, flow_traffic_data = None, tessellation = No
         #Handle necessary parameters based on if network is given
         if type(network) == str:
             #Assume filename
-            network = nx.read_gpickle(network)
+            with open(network, 'rb') as f:
+                network = pickle.load(f)
         elif (type(network) not in [nx.Graph, nx.DiGraph]) and (network is not None):
             raise ValueError('Error: The network parameter must be a networkx Graph or DiGraph, or \
                              a string with the path of the (g)pickle file that contains the network.')
@@ -258,15 +265,24 @@ def construct_model_args(model_name, flow_traffic_data = None, tessellation = No
             if q.shape != initial_odm_df['flow'].shape: #Could use .size instead of .shape
                 raise ValueError('Error: q must have the same size (shape) as the (initial) ODM.')
 
-        if type(c) not in [int, float]:
+        try:
+            c = float(c)
+        except:
             raise ValueError('Error: The loss function coefficient c must be a number.')
         if c < 0:
             warnings.warn('Warning: The loss function coefficient c is negative, this may lead to bad results.')
+
+        try:
+            upper_bound = float(upper_bound)
+        except:
+            raise ValueError('Error: The upper bound for the ODM values must be a number.')
+        if upper_bound < 0:
+            raise ValueError('Error: The upper bound for the ODM values must be a positive number.')
         
         model_params = {'initial_odm_df': initial_odm_df, 'network': network, 'q': q, 'c': c,
-                        'hidden_locations': hidden_locations, 'find_locations': find_locations,
-                        'P_algorithm': P_algorithm, 'extra_paths': extra_paths,
-                        'initial_odm_vector': initial_odm_vector}
+                        'upper_bound': upper_bound,'hidden_locations': hidden_locations,
+                        'find_locations': find_locations, 'P_algorithm': P_algorithm,
+                        'extra_paths': extra_paths, 'initial_odm_vector': initial_odm_vector}
         
         return flow_traffic_data, tessellation, model_params
 
@@ -336,8 +352,9 @@ def run_gravity_model(flows_df, tessellation, gravity_type="singly constrained",
     return synth_fdf
 
 def run_bell_model(bell_type, flow_traffic_data, tessellation=None, initial_odm_df = None,
-                    q=None, c=0.05, network=None, hidden_locations=None, find_locations=None,
-                    P_algorithm='shortest_path', extra_paths=None, initial_odm_vector = None):
+                    q=None, c=0.05, upper_bound=100000, network=None, hidden_locations=None,
+                    find_locations=None, P_algorithm='shortest_path', extra_paths=None,
+                    initial_odm_vector = None):
     """
     Run the Bell model with given data and parameters.
     
@@ -366,6 +383,9 @@ def run_bell_model(bell_type, flow_traffic_data, tessellation=None, initial_odm_
         q (float): The q parameter of the Bell model. Default is None.
 
         c (float): The loss function coefficient. Default is 0.05.
+
+        upper_bound (float | int): The upper bound for the ODM values. Default is 100000.
+        #TODO: Add lower bound
 
         network (networkx.Graph or DiGraph): A network to use for the Bell model.
 
@@ -396,9 +416,12 @@ def run_bell_model(bell_type, flow_traffic_data, tessellation=None, initial_odm_
         #Redirect to Bell modified model (modified with loss function)
         print("Redirecting to Bell modified model (modified with loss function).\
               Should have already been redirected in the run_model function.")
-        odm_ = run_bell_model('bell_modified', flow_traffic_data, tessellation, initial_odm_df,
-                              q, c, network, hidden_locations, find_locations, P_algorithm,
-                              extra_paths, initial_odm_vector)
+        odm_ = run_bell_model(bell_type='bell_modified', flow_traffic_data=flow_traffic_data, 
+                              tessellation = tessellation, initial_odm_df = initial_odm_df,
+                              q = q, c = c, upper_bound = upper_bound, network = network,
+                              hidden_locations = hidden_locations, find_locations = find_locations,
+                              P_algorithm=P_algorithm, extra_paths = extra_paths, 
+                              initial_odm_vector = initial_odm_vector)
         #All procedures are done in the previous call, just return the ODM
         return odm_
     
@@ -449,21 +472,22 @@ def run_bell_model(bell_type, flow_traffic_data, tessellation=None, initial_odm_
               size of the ODM vector: {odm_blueprint.shape[0]}.")
     
     #Run the Bell model
-    #Synch the initial_odm_df with the odm_blueprint
-    initial_odm_sorted = helper_functions.sort_odm_loc_names_df(initial_odm_df, extra['location_pairs'])
+    #Synch the initial_odm_df and q with the odm_blueprint
+    initial_odm_sorted, order = helper_functions.sort_odm_loc_names_df(initial_odm_df, extra['location_pairs'], return_ordering=True)
     odm_initial = np.array(initial_odm_sorted['flow'])
+    q = q[order]
 
     #Something to consider: reducing the P matrix to maximum rank size
     dep, indep = helper_functions.find_dependent_rows(P, return_independent=True)
     dep = list(set([x for group in dep for x in group]))
-
+    print(dep)
     P_dep = P[dep, :]; v_dep = v[dep]
     P_indep = P[indep, :]; v_indep = v[indep]
     odm = helper_functions.optimize_odm(model_function = objective_function, odm_initial = odm_initial,
                                         model_derivative=objective_function_gradient, runs=101,
                                         constraints_linear = helper_functions.odm_linear_constraint(P_indep, v_indep),
                                         model_func_args = {'q': q, 'c': c, 'P_modified_loss': P_dep, 'v_modified_loss': v_dep},
-                                        bounds = helper_functions.bounds(0.001, np.inf), verbose=False, return_last=True
+                                        bounds = helper_functions.bounds(0.001, upper_bound), verbose=False, return_last=True
                                         )
     odm_df = pd.DataFrame({'origin': initial_odm_sorted['origin'],
                            'destination': initial_odm_sorted['destination'],
@@ -525,13 +549,14 @@ def run_model(model_name, flow_traffic_data=None, tessellation=None, output_file
     if model_name == 'bell_modified':
         flow_traffic_data, tessellation, arg_dict = construct_model_args('bell_modified', tessellation=tessellation,
                                                                          flows_df = flow_traffic_data, **kwargs)
-        odm_df = run_bell_model('bell_modified', flow_traffic_data, tessellation, output_filename, **arg_dict)
+        odm_df = run_bell_model('bell_modified', flow_traffic_data, tessellation, **arg_dict)
 
     if model_name == 'bell_L1':
         flow_traffic_data, tessellation, arg_dict = construct_model_args('bell_L1', tessellation=tessellation,
                                                                          flows_df = flow_traffic_data, **kwargs)
-        odm_df = run_bell_model('bell_L1', flow_traffic_data, tessellation, output_filename, **arg_dict)
+        odm_df = run_bell_model('bell_L1', flow_traffic_data, tessellation, **arg_dict)
 
+    odm_df = (odm_df.astype({'flow': 'int'})).reset_index(drop=True)
     #Save the output, return the ODM
     if output_filename is None:
         #This may be changed to not output anything.
@@ -558,13 +583,16 @@ def parser(args=None):
     args is used when running the script from another Python script, or Jupyter notebook
 
     Example:
-    args = {'model': 'gravity', 'data': 'KSH', 'output': 'ODM_2022_Hungary', 'kwargs': 'output_format=csv,key2=value2'}
+    args = {'model': 'gravity', 'data': flow_DF, 'tessellation': tess_GDF,
+            'output_filename': 'ODM_2022_Hungary', 'kwargs': 'output_format=csv,origin_exp=1.0'}
     model, data, output_filename, kwargs = parser(args)
 
-    Otherwise, command line arguments are used and args=None
+    Otherwise, command line arguments are used and args=None.
+    In this case, 'argparse' is used to parse the arguments.
     
     Example:
-    python model_run.py -m bell_modified -d data/roads.geojson -o ODM_2022_Hungary -k output_format=csv,key2=value2
+    python model_run.py -m bell_modified -d data/roads.geojson -t data/tessellation.shp 
+                        -o ODM_2022_Hungary -k output_format=csv,origin_exp=1.0
     """
     if args is None: #Assume command line arguments
         warnings.warn('Warning: This function accepts only string arguments now, if called from command line.\
@@ -572,20 +600,21 @@ def parser(args=None):
                     Commonly, such an argument is initial_odm_vector.')
         parser_ = argparse.ArgumentParser(description='Run a model with given data and save the output to a file.')
         parser_.add_argument('-m', '--model', type=str, required=True, help='The name of the model to run.')
-        parser_.add_argument('-d', '--data', type=str, required=True, help='The data to use with the model.')
-        parser_.add_argument('-o', '--output', type=str, required=True, help='The name of the output file.')
+        parser_.add_argument('-d', '--data', type=str, required=False, help='The data to use with the model.')
+        parser_.add_argument('-t', '--tessellation', type=str, required=False, help='The tessellation to use with the model.')
+        parser_.add_argument('-o', '--output_filename', type=str, required=False, help='The name of the output file.')
         parser_.add_argument('-k', '--kwargs', type=str, default='', help='Additional optional arguments as key=value pairs separated by commas.')
         args = vars(parser_.parse_args())
-    else:#Assume e.g. Jupyter notebook run, with dictionary args
-        #Will need to change this, function will be called directly with various args, without key 'kwargs'
-        if 'kwargs' in args and isinstance(args['kwargs'], str):
-            kv_pairs = args['kwargs'].split(',')
-            try:
-                args['kwargs'] = {key: value for key, value in (pair.split('=') for pair in kv_pairs)}
-            except ValueError:
-                raise ValueError("kwargs must be in the format 'key1=value1,key2=value2,...'")
-    return args['model'], args['data'], args['output'], args.get('kwargs', {})
+    #else:#Assume e.g. Jupyter notebook run, with dictionary args
+    if 'kwargs' in args and isinstance(args['kwargs'], str):
+        kv_pairs = args['kwargs'].split(',')
+        try:
+            args['kwargs'] = {key: value for key, value in (pair.split('=') for pair in kv_pairs)}
+        except ValueError:
+            raise ValueError("kwargs must be in the format 'key1=value1,key2=value2,...'")
+    return args['model'], args.get('data'), args.get('tessellation'), args.get('output_filename'), args.get('kwargs', {})
 
 if __name__ == '__main__':
-    model, data, output_filename, kwargs = parser()
-    run_model(model, data, output_filename, **kwargs)
+    model, data, tessellation, output_filename, kwargs = parser()
+    
+    run_model(model, data, tessellation, output_filename, **kwargs)
