@@ -108,7 +108,7 @@ def construct_model_args(model_name, flow_traffic_data = None, tessellation = No
 
             upper_bound (float | int): The upper bound for the ODM values. Default is 100000.
 
-            network (networkx.Graph or DiGraph): A network to use for the Bell model.
+            network (networkx.Graph or DiGraph): A network to use for the Bell model, traffic as weights.
                     Node names should be the locations, a possible attribute of nodes is 'ignore'.
                     Edges should have the traffic data as edge weights. Possible attribute is 'time'.
             
@@ -208,6 +208,12 @@ def construct_model_args(model_name, flow_traffic_data = None, tessellation = No
                                 requires traffic data given by flow_traffic_data.')
         else:
             #Possible check: if P_algorithm == 'shortest_time' & time attribute not in edges 
+            for edge in network.edges:
+                if 'weight' not in network.edges[edge]:
+                    raise ValueError('Error: Network must have edge weights, representing traffic data.')
+                if 'time' not in network.edges[edge] and P_algorithm == 'shortest_time':
+                    warnings.warn('Warning: The network edges do not have a time attribute, but the P_algorithm is set to "shortest_time".')
+                    
 
             if hidden_locations is None:
                 #TODO Check if this works as intended
