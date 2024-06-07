@@ -207,14 +207,26 @@ def construct_model_args(model_name, flow_traffic_data = None, tessellation = No
                 raise ValueError('Error: If a network is not explicitly given, the Bell model\
                                 requires traffic data given by flow_traffic_data.')
         else:
-            #Possible check: if P_algorithm == 'shortest_time' & time attribute not in edges 
             for edge in network.edges:
                 if 'weight' not in network.edges[edge]:
                     raise ValueError('Error: Network must have edge weights, representing traffic data.')
                 if 'time' not in network.edges[edge] and P_algorithm == 'shortest_time':
-                    warnings.warn('Warning: The network edges do not have a time attribute, but the P_algorithm is set to "shortest_time".')
-                    
-
+                    warnings.warn('Warning: The network edges do not have a time attribute, but P_algorithm \
+                                  is set to "shortest_time". Each value will be computed if possible or set to 50.')
+            all_nodes_ignored = True
+            for node in network.nodes:
+                if 'ignore' not in network.nodes[node]:
+                    network.nodes[node]['ignore'] = True
+                else:
+                    if network.nodes[node]['ignore'] not in [True, False]:
+                        raise ValueError('Error: The ignore attribute of nodes must be True or False.')
+                    if network.nodes[node]['ignore'] == True:
+                        all_nodes_ignored = False
+            if all_nodes_ignored:
+                warnings.warn('Warning: All nodes in the network are initially ignored: ignoring none instead.')
+                for node in network.nodes:
+                    network.nodes[node]['ignore'] = False
+            
             if hidden_locations is None:
                 #TODO Check if this works as intended
                 hidden_locations = [node for node in network.nodes if 'ignore' in network.nodes[node]]
