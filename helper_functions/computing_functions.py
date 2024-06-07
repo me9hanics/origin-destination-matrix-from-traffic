@@ -59,7 +59,7 @@ def v_P_odmbp_shortest_paths(G, removed_nodes=None, hidden_locations=None, extra
 
     Parameters:
     G (networkx.Graph): The graph on which shortest paths are to be calculated.
-    removed_nodes (list, optional): Nodes to be removed from the graph. Defaults to None.
+    removed_nodes (list, optional): Nodes to be removed from the graph before computation. Defaults to None.
     hidden_locations (list, optional): Locations to be hidden in the final output. Defaults to None.
     extra_paths_dict (dict, optional): Extra paths to be included in the shortest paths. Defaults to None.
 
@@ -70,12 +70,12 @@ def v_P_odmbp_shortest_paths(G, removed_nodes=None, hidden_locations=None, extra
     extra_info (dict): A dict containing road names, locations, location pairs, and the shortest paths dictionary.
     """
 
-
+    G_ = G.copy()
     #Vector of locations (if needed)
-    locations = list(G.nodes())
     if removed_nodes:
         for node in removed_nodes:
-            locations.remove(node)
+            G_.remove_node(node)
+    locations = list(G_.nodes())
 
     #Vector of location pairs
     location_pairs = list(combinations(locations, 2))
@@ -83,8 +83,8 @@ def v_P_odmbp_shortest_paths(G, removed_nodes=None, hidden_locations=None, extra
     odm_blueprint = np.full(len(location_pairs), 1) #0.1
     
     #Vector of road traffics
-    v = np.array([G.get_edge_data(*edge)['weight'] for edge in G.edges()])
-    road_names = [edge for edge in G.edges()]
+    v = np.array([G_.get_edge_data(*edge)['weight'] for edge in G_.edges()])
+    road_names = [edge for edge in G_.edges()]
 
     #Shortest + extra paths between all pairs of locations
     shortest_paths_dict = {}
@@ -93,7 +93,7 @@ def v_P_odmbp_shortest_paths(G, removed_nodes=None, hidden_locations=None, extra
         for j in range(i+1,len(locations)):
             target = locations[j]
             if source != target:
-                paths = nx.all_shortest_paths(G, source=source, target=target)
+                paths = nx.all_shortest_paths(G_, source=source, target=target)
                 shortest_paths_dict[(source, target)] = list(paths)  # Convert generator to list
     if (extra_paths_dict is not None): #A possible checking of the type might be needed, e.g. if list, try create_paths_dict()
         for key in extra_paths_dict:
@@ -103,7 +103,7 @@ def v_P_odmbp_shortest_paths(G, removed_nodes=None, hidden_locations=None, extra
                 shortest_paths_dict[key].append(key_extra_path)
 
     #P matrix
-    P = p_matrix_from_undirected_shortest_paths(G, shortest_paths_dict)
+    P = p_matrix_from_undirected_shortest_paths(G_, shortest_paths_dict)
     if round_P:
         P = np.around(P, 5)
 
