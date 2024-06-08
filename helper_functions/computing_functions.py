@@ -77,13 +77,11 @@ def v_P_odmbp_shortest_paths(G, removed_nodes=None, hidden_locations=None, extra
         for node in removed_nodes:
             G_.remove_node(node)
     locations = list(G_.nodes())
-
-    #Vector of locations (if needed)
-    locations = list(G_.nodes())
     locations_ = locations #To iterate over not the list we are changing
     for node in locations_:
         if node in hidden_locations:
             locations.remove(node)
+            continue
         if "ignore" in G_.nodes[node].keys():
             if G_.nodes[node]['ignore']:
                 locations.remove(node)
