@@ -49,6 +49,85 @@ def p_matrix_from_undirected_shortest_paths(G, shortest_paths_dict):
 
 def v_P_odmbp_shortest_paths(G, removed_nodes=None, hidden_locations=None, extra_paths_dict=None, round_P = False):
     """
+    Compressive (memory efficient) version of the v_P_odmbp_shortest_paths_depreciated function, with the same functionality.
+
+    Given a graph + extra parameters, return v, P, a blueprint for the O-D matrix, and corresponding names/info.
+    The computation of P is based on the number of shortest paths between two locations, plus included extra paths. 
+    Removed nodes are not present during computation. Hidden locations are included in computing, but not in the output.
+    The function returns: road traffic (v) of size I x 1, an origin-destination matrix (ODM) footprint of size J x 1,
+    a matrix P of size I x J, all ordered in correspondance to each other and an extra info tuple containing road names,
+    locations, location pairs, and the shortest paths dictionary.
+    For further use, v = P * odm is assumed, from which one can estimate the ODM matrix. This is why order matters.
+
+    Parameters:
+    G (networkx.Graph): The graph on which shortest paths are to be calculated.
+    removed_nodes (list, optional): Nodes to be removed from the graph. Defaults to None.
+    hidden_locations (list, optional): Locations to be hidden in the final output. Defaults to None.
+    extra_paths_dict (dict, optional): Extra paths to be included in the shortest paths. Defaults to None.
+
+    Returns:
+    v (numpy.ndarray): Vector of road traffics.
+    P (numpy.ndarray): Matrix representing the shortest paths.
+    odm_blueprint (numpy.ndarray): Blueprint vector for an origin-destination matrix.
+    extra_info (dict): A dict containing road names, locations, location pairs, and the shortest paths dictionary.
+    """
+    G_ = G.copy()
+    #Vector of locations (if needed)
+    if removed_nodes:
+        for node in removed_nodes:
+            G_.remove_node(node)
+    locations = list(G_.nodes())
+
+    #Vector of locations (if needed)
+    locations = list(G_.nodes())
+    locations_ = locations #To iterate over not the list we are changing
+    for node in locations_:
+        if node in hidden_locations:
+            locations.remove(node)
+        if "ignore" in G_.nodes[node].keys():
+            if G_.nodes[node]['ignore']:
+                locations.remove(node)
+    del locations_ #Save memory
+
+    #Create a "blueprint" for O-D matrix
+    location_pairs = list(combinations(locations, 2))
+    odm_blueprint = np.full(len(location_pairs), 1)
+    
+    #Vector of road traffics
+    v = np.array([G_.get_edge_data(*edge)['weight'] for edge in G_.edges()])
+    road_names = [edge for edge in G_.edges()]
+
+    #Shortest + extra paths between all pairs of locations
+    shortest_paths_dict = {}
+    for i in range(len(locations)):
+        source = locations[i]
+        for j in range(i+1,len(locations)):
+            target = locations[j]
+            if source != target:
+                paths = nx.all_shortest_paths(G_, source=source, target=target)
+                shortest_paths_dict[(source, target)] = list(paths)  # Convert generator to list
+    if (extra_paths_dict is not None): #A possible checking of the type might be needed, e.g. if list, try create_paths_dict()
+        for key in extra_paths_dict:
+            if key not in shortest_paths_dict:
+                shortest_paths_dict[key] = []
+            for key_extra_path in extra_paths_dict[key]:
+                shortest_paths_dict[key].append(key_extra_path)
+
+    #P matrix
+    P = p_matrix_from_undirected_shortest_paths(G_, shortest_paths_dict)
+    if round_P:
+        P = np.around(P, 5)
+
+    extra_info = {
+        "road_names": road_names,
+        "locations": locations,
+        "location_pairs": location_pairs,
+        "shortest_paths_dict": shortest_paths_dict
+    }
+    return v, P, odm_blueprint, extra_info #v, P, odm, extra_info
+
+def v_P_odmbp_shortest_paths_depreciated(G, removed_nodes=None, hidden_locations=None, extra_paths_dict=None, round_P = False):
+    """
     Given a graph + extra parameters, return v, P, a blueprint for the O-D matrix, and corresponding names/info.
     The computation of P is based on the number of shortest paths between two locations, plus included extra paths. 
     Removed nodes are not present during computation. Hidden locations are included in computing, but not in the output.
