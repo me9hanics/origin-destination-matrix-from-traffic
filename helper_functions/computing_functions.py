@@ -47,7 +47,7 @@ def p_matrix_from_undirected_shortest_paths(G, shortest_paths_dict):
 
     return P
 
-def v_P_odmbp_shortest_paths(G, removed_nodes=None, hidden_locations=None, extra_paths_dict=None, round_P = False):
+def v_P_odmbp_shortest_paths(G, removed_nodes=None, hidden_locations=None, extra_paths_dict=None, round_P = False, verbose=False):
     """
     Compressive (memory efficient) version of the v_P_odmbp_shortest_paths_depreciated function, with the same functionality.
 
@@ -71,21 +71,21 @@ def v_P_odmbp_shortest_paths(G, removed_nodes=None, hidden_locations=None, extra
     odm_blueprint (numpy.ndarray): Blueprint vector for an origin-destination matrix.
     extra_info (dict): A dict containing road names, locations, location pairs, and the shortest paths dictionary.
     """
+
+    if verbose:
+        print("Starting P-matrix computation.")
     G_ = G.copy()
     #Vector of locations (if needed)
     if removed_nodes:
+        if verbose:
+            print(f"Removing {len(removed_nodes)} nodes from the graph.")
         for node in removed_nodes:
             G_.remove_node(node)
-    locations = list(G_.nodes())
-    locations_ = locations #To iterate over not the list we are changing
-    for node in locations_:
-        if node in hidden_locations:
-            locations.remove(node)
-            continue
-        if "ignore" in G_.nodes[node].keys():
-            if G_.nodes[node]['ignore']:
-                locations.remove(node)
-    del locations_ #Save memory
+    if verbose:
+        print(f"Only focusing on non-hidden locations, removing hidden locations from computations (not graph)")
+    locations = list(set(G_.nodes()) - set(hidden_locations))
+    if verbose:
+        print(f"Locations after removal: {len(locations)}")
 
     #Create a "blueprint" for O-D matrix
     location_pairs = list(combinations(locations, 2))
@@ -96,15 +96,30 @@ def v_P_odmbp_shortest_paths(G, removed_nodes=None, hidden_locations=None, extra
     road_names = [edge for edge in G_.edges()]
 
     #Shortest + extra paths between all pairs of locations
+    if verbose:
+        process = 0
+        max_process = len(locations) * (len(locations) - 1) / 2
+        limits = [int(max_process * i / 10) for i in range(1, 11)]
+        if verbose:
+            print(f"Starting computation of shortest paths between {len(locations)} locations.")
     shortest_paths_dict = {}
     for i in range(len(locations)):
         source = locations[i]
         for j in range(i+1,len(locations)):
             target = locations[j]
-            if source != target:
+            if source != target: #Should theoretically not happen
                 paths = nx.all_shortest_paths(G_, source=source, target=target)
-                shortest_paths_dict[(source, target)] = list(paths)  # Convert generator to list
-    if (extra_paths_dict is not None): #A possible checking of the type might be needed, e.g. if list, try create_paths_dict()
+                shortest_paths_dict[(source, target)] = list(paths)  #Convert generator to list
+            if verbose:
+                process += 1
+                if process in limits:
+                    if verbose:
+                        print(f"{int(process*100/max_process)}% completed.")
+    if verbose:
+        print("Shortest paths computation completed.")
+    if (extra_paths_dict is not None): #A possible checking of the type might be needed
+        if verbose:
+            print(f"Adding {len(extra_paths_dict)} extra paths to the shortest paths matrix.")
         for key in extra_paths_dict:
             if key not in shortest_paths_dict:
                 shortest_paths_dict[key] = []
@@ -112,6 +127,8 @@ def v_P_odmbp_shortest_paths(G, removed_nodes=None, hidden_locations=None, extra
                 shortest_paths_dict[key].append(key_extra_path)
 
     #P matrix
+    if verbose:
+        print("Constructing the P matrix from the found shortest paths.")
     P = p_matrix_from_undirected_shortest_paths(G_, shortest_paths_dict)
     if round_P:
         P = np.around(P, 5)
@@ -211,6 +228,38 @@ def remove_full_zero_rows(P, v):
     if zero_rows[0].size > 0:
         print(f"Removed full-zero rows at indexes: {zero_rows}")
     return P_reduced, v_reduced
+
+def find_dependent_rows_simplified(P, verbose=True, return_independent=False):
+    """Find those rows which are linearly dependent/independent from others - simplified version for speed."""
+    dependent_rows = []
+    independent_rows = []
+    if P.shape[0]>P.shape[1]:
+        if verbose:
+            print("More rows than columns - automatically flagging last M-N rows as dependent")
+        dependent_rows += list(range(P.shape[1], P.shape[0]))
+        P = P[:P.shape[1]] #Keep only the first N rows
+
+    rank = np.linalg.matrix_rank(P)
+    previous_rank = 0
+    for i in range(P.shape[0]):
+        #Add the i-th row to the submatrix
+        #Check if the rank doesn't change by removing row i
+        submatrix = P[:i+1]
+        new_rank = np.linalg.matrix_rank(submatrix)
+        if new_rank == previous_rank:
+            #The new row is linearly dependent with some of the previous rows
+            dependent_rows.append(i)
+        else:
+            independent_rows.append(i)
+        previous_rank = new_rank
+        
+    independent_rows = [i for i in range(P.shape[0]) if i not in dependent_rows]
+    if verbose:
+        print(f"Dependent rows: {dependent_rows}")  
+        print(f"Independent rows count: {len(independent_rows)}, out of {P.shape[0]} rows")
+    if return_independent:
+        return dependent_rows, independent_rows
+    return dependent_rows #return [d for d in dependencies if len(d) > 1]
 
 def find_dependent_rows(P, verbose=True, return_independent=False):
     #Note: The case when after one group is found, the next groups will include it, is not fixed
