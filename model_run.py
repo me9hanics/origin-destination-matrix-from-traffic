@@ -228,12 +228,12 @@ def construct_model_args(model_name, flow_traffic_data = None, tessellation = No
                     network.nodes[node]['ignore'] = False
             
             if hidden_locations is None:
-                #TODO Check if this works as intended
-                hidden_locations = [node for node in network.nodes if 'ignore' in network.nodes[node]]
+                #This relies on the previous step.
+                hidden_locations = [node for node in network.nodes if network.nodes[node]['ignore'] == True]
             else:
                 #TODO Check if this works as intended
                 hidden_locations = list(set(hidden_locations
-                                            + [node for node in network.nodes if 'ignore' in network.nodes[node]]))
+                                            + [node for node in network.nodes if network.nodes[node]['ignore'] == True]))
                 
             if find_locations is not None:
                 warnings.warn('Warning: find_locations parameter may not be used, because a network is given.')
@@ -327,12 +327,14 @@ def run_gravity_model(flows_df, tessellation, gravity_type="singly constrained",
         destination_exp (float): The destination exponent. Default is 1.0.
         tot_outflows (pd.Series): The total outflows from each location. Default is None.
     """
+    print("Importing the needed libraries.")
     #Import here, because skmob isn't a necessary dependency
     import skmob
     from skmob.utils import utils, constants
     #from skmob.models import gravity
     from skmob.models.gravity import Gravity
 
+    print("Loading the given data into a FlowDataFrame.")
     #load real flows into a FlowDataFrame
     fdf = skmob.FlowDataFrame(flows_df,
                                 tessellation=tessellation,
@@ -352,9 +354,10 @@ def run_gravity_model(flows_df, tessellation, gravity_type="singly constrained",
               Computing total outflows from each location (didn't find prior total outflows).")
         tot_outflows = fdf.groupby(by='origin', axis=0)[['flow']].sum().fillna(0)
     
+    print("Adding total outflows per location to the tessellation.")
     tessellation = tessellation.merge(tot_outflows, left_on='tile_ID', right_on='origin')\
                                         .rename(columns={'flow': constants.TOT_OUTFLOW})
-    #Run the gravity model
+    print("Running the gravity model.")
     gravity_singly = Gravity(gravity_type=gravity_type, deterrence_func_type=deterrence_func_type,
                              deterrence_func_args=deterrence_func_args, origin_exp=origin_exp,
                              destination_exp=destination_exp)
@@ -445,6 +448,7 @@ def run_bell_model(bell_type, flow_traffic_data, tessellation=None, initial_odm_
     
     #Assuming otherwise
     if bell_type == 'bell_modified':
+        warnings.warn('Warning: The Bell modified (entropic absolute error loss) model is slow.')
         loss_func = 'modified'
         objective_function = helper_functions.F_Bell_modified_optimize
         objective_function_gradient = helper_functions.F_Bell_modified_optimize_gradient
@@ -482,25 +486,37 @@ def run_bell_model(bell_type, flow_traffic_data, tessellation=None, initial_odm_
     if P_algorithm != 'shortest_path':
         raise ValueError('Error: Currently, only "shortest_path" is implemented for P_algorithm.')
     if P_algorithm == 'shortest_path':
+        print(f"Computing the P matrix based on shortest paths. Sizes: roads: {network.number_of_edges()},\n\
+              nodes: {network.number_of_nodes()}, among which are not hidden: {len(list(set(network.nodes) - set(hidden_locations)))}")
         #Compute the P matrix based on shortest paths
         v, P, odm_blueprint, extra = helper_functions.v_P_odmbp_shortest_paths(network,
                                                                                hidden_locations = hidden_locations,
-                                                                               extra_paths_dict = extra_paths)
+                                                                               extra_paths_dict = extra_paths,
+                                                                               verbose=True)
         print(f"Computed the P matrix based on shortest paths. Size of road traffic vector: {v.shape[0]},\
               size of the ODM vector: {odm_blueprint.shape[0]}.")
     
+    #Something to consider: reducing the P matrix to maximum rank size
+    print("Removing roads from the P matrix that are full of 0 values (unused between locations).")
+    P_,v_ = helper_functions.remove_full_zero_rows(P,v)
+    print(f"Removed {P.shape[0] - P_.shape[0]} rows from the P matrix and from the v vector.")
+    P = P_; v = v_
+    print("Finding dependent and independent rows in the P matrix.")
+    dep, indep = helper_functions.find_dependent_rows_simplified(P, verbose=True, return_independent=True)
+    P_dep = P[dep, :]; v_dep = v[dep]
+    P_indep = P[indep, :]; v_indep = v[indep]
+    print(f"Rows in the P matrix: dependent: {len(dep)}, independent: {len(indep)}.")
+
     #Run the Bell model
     #Synch the initial_odm_df and q with the odm_blueprint
+    print("Synchronizing the initial ODM with the blueprint ODM.")
     initial_odm_sorted, order = helper_functions.sort_odm_loc_names_df(initial_odm_df, extra['location_pairs'], return_ordering=True)
     odm_initial = np.array(initial_odm_sorted['flow'])
     q = q[order]
 
-    #Something to consider: reducing the P matrix to maximum rank size
-    dep, indep = helper_functions.find_dependent_rows(P, return_independent=True)
-    dep = list(set([x for group in dep for x in group]))
-    print(dep)
-    P_dep = P[dep, :]; v_dep = v[dep]
-    P_indep = P[indep, :]; v_indep = v[indep]
+    #Print sizes for everything
+    print(f"Sizes: odm_initial: {odm_initial.shape}, q: {q.shape}, P_dep: {P_dep.shape}, P_indep: {P_indep.shape}, v_dep: {v_dep.shape}, v_indep: {v_indep.shape}")
+    print("Running the SciPy optimizer.")
     odm = helper_functions.optimize_odm(model_function = objective_function, odm_initial = odm_initial,
                                         model_derivative=objective_function_gradient, runs=101,
                                         constraints_linear = helper_functions.odm_linear_constraint(P_indep, v_indep),
@@ -552,12 +568,15 @@ def run_model(model_name, flow_traffic_data=None, tessellation=None, output_file
     """
     
     if model_name == 'gravity':
+        print("Constructing the gravity model arguments.")
         flow_traffic_data, tessellation, arg_dict = construct_model_args('gravity', tessellation=tessellation,
                                                                          flows_df = flow_traffic_data, **kwargs)
+        print("Running the gravity model.")
         odm_df = run_gravity_model(flows_df = flow_traffic_data, tessellation = tessellation, **arg_dict)
 
     if model_name == 'bell':
         """Redirect to Bell modified model (modified with loss function)"""
+        print("Redirecting to Bell modified model (modified with loss function).")
         #Safest (future-proof) way to do this is to re-run this function with the modified model name.
         #Might need to be changed later, to safeproof recursive calls.
         odm_ = run_model('bell_modified', flow_traffic_data, tessellation, output_filename, **kwargs)
@@ -565,17 +584,22 @@ def run_model(model_name, flow_traffic_data=None, tessellation=None, output_file
         return odm_
 
     if model_name == 'bell_modified':
+        print("Constructing the Bell modified (absolute entropic loss) model arguments.")
         flow_traffic_data, tessellation, arg_dict = construct_model_args('bell_modified', tessellation=tessellation,
                                                                          flows_df = flow_traffic_data, **kwargs)
+        print("Running the Bell modified model.")
         odm_df = run_bell_model('bell_modified', flow_traffic_data, tessellation, **arg_dict)
 
     if model_name == 'bell_L1':
+        print("Constructing the Bell L1 (approximation of L1 loss) model arguments.")
         flow_traffic_data, tessellation, arg_dict = construct_model_args('bell_L1', tessellation=tessellation,
                                                                          flows_df = flow_traffic_data, **kwargs)
+        print("Running the Bell L1 model.")
         odm_df = run_bell_model('bell_L1', flow_traffic_data, tessellation, **arg_dict)
 
     odm_df = (odm_df.astype({'flow': 'int'})).reset_index(drop=True)
     #Save the output, return the ODM
+    print("Saving the output to a file.")
     if output_filename is None:
         #This may be changed to not output anything.
         import datetime
