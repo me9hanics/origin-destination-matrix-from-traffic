@@ -320,14 +320,14 @@ def evaluate_model(predicted, real, model_name="model", verbose=True):
         print(f'SoS of relative differences for {model_name}: {ssrd}\n')
     return mse, corr, ssrd
 
-def plot_symmetric_models_by_real_values(x, models_dict, colors_list=None, names=None):
+def plot_symmetric_models_by_real_values(x, models_dict, colors_list=None, names=None, limits=[0, 10**5]):
     # Assuming array inputs
     if x.ndim != 1:
         print("Assuming x is a matrix, taking the upper triangle")
         x = list(x[np.triu_indices(x.shape[0], k = 1)])
 
     fig, ax = plt.subplots(1, 1, figsize=(20, 6))
-    plt.plot([0, 10**5], [0, 10**5], color='black', label='y=x')
+    plt.plot(limits, limits, color='black', label='prediction=real value line')
 
     error_comparisons = {}
     for i, (label, model) in enumerate(models_dict.items()):
@@ -353,7 +353,12 @@ def plot_symmetric_models_by_real_values(x, models_dict, colors_list=None, names
 
     plt.xscale('log')
     plt.yscale('log')
-    plt.legend()
+    plt.xlabel('Real O-D traffic values', fontsize=15)
+    plt.ylabel('Predicted values', rotation=90, fontsize=15)
+    plt.title('Models predicted O-D pair values vs correct values line', fontsize=18)
+    plt.xlim(limits)
+    plt.ylim(limits)
+    plt.legend(fontsize=14)
 
     for model, errors in error_comparisons.items():
         print(f'Error comparisons for {model}: MSE = {errors["MSE"]}, MAE = {errors["MAE"]}')
