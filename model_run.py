@@ -6,6 +6,7 @@ import pandas as pd
 import geopandas as gpd
 import numpy as np
 import networkx as nx
+import copy
 
 # Purposefully avoiding classes for simplicity
 
@@ -154,6 +155,7 @@ def construct_model_args(model_name, flow_traffic_data = None, tessellation = No
         find_locations = kwargs.get('find_locations', None)
         P_algorithm = kwargs.get('P_algorithm', 'shortest_path')
         extra_paths = kwargs.get('extra_paths', None)
+        return_before_optimization = kwargs.get('return_before_optimization', False)
         #TODO: Adding the P matrix explicitly as a parameter, if it is already computed.
 
         #Handle necessary parameters based on if network is given
@@ -202,6 +204,7 @@ def construct_model_args(model_name, flow_traffic_data = None, tessellation = No
                              with the path of the file that contains it.')
 
         if network is None:
+            #TODO
             raise ValueError('Error: Model not yet implemented without input network')
             if flow_traffic_data is None:
                 raise ValueError('Error: If a network is not explicitly given, the Bell model\
@@ -297,10 +300,19 @@ def construct_model_args(model_name, flow_traffic_data = None, tessellation = No
         if upper_bound < 0:
             raise ValueError('Error: The upper bound for the ODM values must be a positive number.')
         
+        if type(return_before_optimization) is not bool:
+            warnings.warn('Warning: The return_before_optimization parameter must be a boolean.\
+                          Setting it to False.')
+            return_before_optimization = False
+        #Copying
+        flow_traffic_data = copy.deepcopy(flow_traffic_data)
+        tessellation = copy.deepcopy(tessellation)
+        initial_odm_df = initial_odm_df.copy()
         model_params = {'initial_odm_df': initial_odm_df, 'network': network, 'q': q, 'c': c,
                         'upper_bound': upper_bound,'hidden_locations': hidden_locations,
                         'find_locations': find_locations, 'P_algorithm': P_algorithm,
-                        'extra_paths': extra_paths, 'initial_odm_vector': initial_odm_vector}
+                        'extra_paths': extra_paths, 'initial_odm_vector': initial_odm_vector,
+                        'return_before_optimization': return_before_optimization}
         
         return flow_traffic_data, tessellation, model_params
 
@@ -375,7 +387,7 @@ def run_gravity_model(flows_df, tessellation, gravity_type="singly constrained",
 def run_bell_model(bell_type, flow_traffic_data, tessellation=None, initial_odm_df = None,
                     q=None, c=0.05, upper_bound=100000, network=None, hidden_locations=None,
                     find_locations=None, P_algorithm='shortest_path', extra_paths=None,
-                    initial_odm_vector = None):
+                    initial_odm_vector = None, return_before_optimization=False):
     """
     Run the Bell model with given data and parameters.
     
@@ -513,7 +525,8 @@ def run_bell_model(bell_type, flow_traffic_data, tessellation=None, initial_odm_
     initial_odm_sorted, order = helper_functions.sort_odm_loc_names_df(initial_odm_df, extra['location_pairs'], return_ordering=True)
     odm_initial = np.array(initial_odm_sorted['flow'])
     q = q[order]
-
+    if return_before_optimization:
+        return (v, P, odm_blueprint, extra, q, initial_odm_sorted, order, P_dep, v_dep, P_indep, v_indep)
     #Print sizes for everything
     print(f"Sizes: odm_initial: {odm_initial.shape}, q: {q.shape}, P_dep: {P_dep.shape}, P_indep: {P_indep.shape}, v_dep: {v_dep.shape}, v_indep: {v_indep.shape}")
     print("Running the SciPy optimizer.")
@@ -566,7 +579,7 @@ def run_model(model_name, flow_traffic_data=None, tessellation=None, output_file
     Output:
         Saves the output to a file with the given output_filename. Returns the O-D matrix as pandas.DataFrame.
     """
-    
+
     if model_name == 'gravity':
         print("Constructing the gravity model arguments.")
         flow_traffic_data, tessellation, arg_dict = construct_model_args('gravity', tessellation=tessellation,
