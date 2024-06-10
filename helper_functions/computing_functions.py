@@ -471,11 +471,21 @@ def odm_location_names_df_to_odm_2d_symmetric(odm_df, places_sorted=None):
 
 def sort_odm_loc_names_df(odm_df, ordered_o_d_tuple_list, return_ordering=False):
     #Column with the index of each (origin, destination) pair in the ordered list
+    #origins = np.array(odm_df['origin'])
+    #destinations = np.array(odm_df['destination'])
+    #sort_keys = np.array([None]*len(origins))
     odm_df['sort_key'] = None
     for i, (o, d) in enumerate(ordered_o_d_tuple_list):
         odm_df.loc[(odm_df['origin'] == o) & (odm_df['destination'] == d), 'sort_key'] = i
     #odm_df['sort_key'] = [ordered_o_d_tuple_list.index((o, d)) for o, d in zip(odm_df['origin'], odm_df['destination'])]
-    odm_df = odm_df[odm_df['sort_key'].notnull()]
+    if odm_df['sort_key'].isnull().sum() > 0:
+        print("Missing values in the sort_key column (ordering of original dataframe).\n\
+              ASSUMING symmetric ODM - filling the missing values with the reverse (destination, origin).\n\
+              All other missing values will be removed.")
+        for i, (o, d) in enumerate(ordered_o_d_tuple_list):
+            odm_df.loc[(odm_df['origin'] == d) & (odm_df['destination'] == o) & (odm_df['sort_key'].isnull()), 'sort_key'] = i
+        odm_df = odm_df[odm_df['sort_key'].notnull()]
+    
     ordering = np.array(odm_df['sort_key'].values).astype(int)
     sorted_df = odm_df.sort_values(by='sort_key')
     
