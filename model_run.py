@@ -248,6 +248,13 @@ def construct_model_args(model_name, flow_traffic_data = None, tessellation = No
             if (P_algorithm != 'shortest_path') and (extra_paths is not None):
                 warnings.warn('Warning: extra_paths parameter is not yet implemented to be used \
                               with P_algorithm != "shortest_path".')
+        if (P_algorithm == 'shortest_time'):
+            #Check if the network has time attribute in the edges
+            missing_time_edges = [edge for edge in network.edges if 'time' not in network.edges[edge]]
+            if len(missing_time_edges) > 0:
+                print("No time attribute in the network edges, try adding time attribute")
+                #TODO
+            pass
 
         #ODM computation parameters
         if initial_odm_df is None:
@@ -489,14 +496,13 @@ def run_bell_model(bell_type, flow_traffic_data, tessellation=None, initial_odm_
     #Assuming we now have a network
     #(Assuming that "ignore" attribute also was used in the function construct_model_args to get 
         #hidden_locations, so that step is not repeated here)
-    if (P_algorithm == 'shortest_time') and ('time' not in network.edges):
-        print("No time attribute in the network edges, try adding time attribute")
-        #TODO
-        pass
 
     #P matrix computation
-    if P_algorithm != 'shortest_path':
-        raise ValueError('Error: Currently, only "shortest_path" is implemented for P_algorithm.')
+    if P_algorithm not in ['shortest_path', 'shortest_time']:
+        raise ValueError('Error: Currently, only "shortest_path" and "shortest_time" are implemented for P_algorithm.')
+    if P_algorithm == 'shortest_time':
+        #TODO
+        raise ValueError('Error: Not yet implemented to compute the P matrix based on shortest time paths.')
     if P_algorithm == 'shortest_path':
         print(f"Computing the P matrix based on shortest paths. Sizes: roads: {network.number_of_edges()},\n\
               nodes: {network.number_of_nodes()}, among which are not hidden: {len(list(set(network.nodes) - set(hidden_locations)))}")
