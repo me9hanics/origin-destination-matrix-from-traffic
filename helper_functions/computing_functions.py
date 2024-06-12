@@ -54,7 +54,7 @@ def v_P_odmbp_shortest_paths(G, removed_nodes=None, hidden_locations=None, extra
     Given a graph + extra parameters, return v, P, a blueprint for the O-D matrix, and corresponding names/info.
     The computation of P is based on the number of shortest paths between two locations, plus included extra paths. 
     Removed nodes are not present during computation. Hidden locations are included in computing, but not in the output.
-    The function returns: road traffic (v) of size I x 1, an origin-destination matrix (ODM) footprint of size J x 1,
+    The function returns: road traffic (v) of size I x 1, an origin-destination matrix (ODM) blueprint of size J x 1,
     a matrix P of size I x J, all ordered in correspondance to each other and an extra info tuple containing road names,
     locations, location pairs, and the shortest paths dictionary.
     For further use, v = P * odm is assumed, from which one can estimate the ODM matrix. This is why order matters.
@@ -146,7 +146,7 @@ def v_P_odmbp_shortest_paths_depreciated(G, removed_nodes=None, hidden_locations
     Given a graph + extra parameters, return v, P, a blueprint for the O-D matrix, and corresponding names/info.
     The computation of P is based on the number of shortest paths between two locations, plus included extra paths. 
     Removed nodes are not present during computation. Hidden locations are included in computing, but not in the output.
-    The function returns: road traffic (v) of size I x 1, an origin-destination matrix (ODM) footprint of size J x 1,
+    The function returns: road traffic (v) of size I x 1, an origin-destination matrix (ODM) blueprint of size J x 1,
     a matrix P of size I x J, all ordered in correspondance to each other and an extra info tuple containing road names,
     locations, location pairs, and the shortest paths dictionary.
     For further use, v = P * odm is assumed, from which one can estimate the ODM matrix. This is why order matters.
@@ -216,6 +216,35 @@ def v_P_odmbp_shortest_paths_depreciated(G, removed_nodes=None, hidden_locations
         "shortest_paths_dict": shortest_paths_dict
     }
     return v, P, odm_blueprint, extra_info #v, P, odm, extra_info
+
+def v_P_odmbp_shortest_times(G, max_selected_paths = 3, time_threshold = None, removed_nodes=None, hidden_locations=None, extra_paths_dict=None, round_P = False):
+    """
+    Given a graph + parameters, compute the shortest time paths between locations, returning v, P, and other info.
+
+    The computation of P is based on the shortest time paths between locations. The shortest time path is always included.
+    If the time threshold is set, only those paths are included that are shorter than the shortest time * (1+threshold).
+    If it is not set, the max_selected_paths are considered.
+    Removed nodes are not present during computation. Hidden locations are included in computing, but not in the output.
+    The function returns: road traffic (v) of size I x 1, an origin-destination matrix (ODM) blueprint of size J x 1,
+    a matrix P of size I x J, all ordered in correspondance to each other and an extra info tuple containing road names,
+    locations, location pairs, and the shortest paths dictionary.
+    For further use, v = P * odm is assumed, from which one can estimate the ODM matrix. This is why order matters.
+
+    Parameters:
+    G (networkx.Graph): The graph on which shortest paths are to be calculated.
+    max_selected_paths (int, optional): The maximum number of selected shortest paths between two locations. Defaults to 3.
+    time_threshold (float, optional): The threshold for the time diff between the shortest path and other selected paths. Defaults to None.
+    removed_nodes (list, optional): Nodes to be removed from the graph before computation. Defaults to None.
+    hidden_locations (list, optional): Locations to be hidden in the final output. Defaults to None.
+    extra_paths_dict (dict, optional): Extra paths to be included in the shortest paths. Defaults to None.
+
+    Returns:
+    v (numpy.ndarray): Vector of road traffics.
+    P (numpy.ndarray): Matrix representing the shortest paths.
+    odm_blueprint (numpy.ndarray): Blueprint vector for an origin-destination matrix.
+    extra_info (dict): A dict containing road names, locations, location pairs, and the shortest paths (by time) dictionary.
+    """
+    pass
 
 def get_all_zero_rows(matrix):
     #Rows are selected based on the condition: not containing any non-zero elements
