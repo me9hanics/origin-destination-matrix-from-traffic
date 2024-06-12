@@ -498,14 +498,22 @@ def run_bell_model(bell_type, flow_traffic_data, tessellation=None, initial_odm_
         #hidden_locations, so that step is not repeated here)
 
     #P matrix computation
+    print(f"Computing the P matrix based on method: {P_algorithm}. Sizes: roads: {network.number_of_edges()},\n\
+              nodes: {network.number_of_nodes()}, among which are not hidden: {len(list(set(network.nodes) - set(hidden_locations)))}")
     if P_algorithm not in ['shortest_path', 'shortest_time']:
         raise ValueError('Error: Currently, only "shortest_path" and "shortest_time" are implemented for P_algorithm.')
     if P_algorithm == 'shortest_time':
         #TODO
         raise ValueError('Error: Not yet implemented to compute the P matrix based on shortest time paths.')
+        max_selected_paths = 3
+        time_threshold = None
+        v, P, odm_blueprint, extra = helper_functions.v_P_odmbp_shortest_times(network,
+                                                                                max_selected_paths=max_selected_paths,
+                                                                                time_threshold=time_threshold,
+                                                                                hidden_locations = hidden_locations,
+                                                                                extra_paths_dict = extra_paths,
+                                                                                verbose=True)
     if P_algorithm == 'shortest_path':
-        print(f"Computing the P matrix based on shortest paths. Sizes: roads: {network.number_of_edges()},\n\
-              nodes: {network.number_of_nodes()}, among which are not hidden: {len(list(set(network.nodes) - set(hidden_locations)))}")
         #Compute the P matrix based on shortest paths
         v, P, odm_blueprint, extra = helper_functions.v_P_odmbp_shortest_paths(network,
                                                                                hidden_locations = hidden_locations,
