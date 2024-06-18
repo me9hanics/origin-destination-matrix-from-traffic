@@ -4,6 +4,8 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 import seaborn as sns
 from itertools import combinations
+import warnings
+from itertools import islice
 
 def create_paths_dict(route_list):
     #Assuming list of lists
@@ -16,6 +18,41 @@ def create_paths_dict(route_list):
                 extra_paths[key] = []
             extra_paths[key].append(route)
     return extra_paths
+
+def remove_nodes_from_graph(G, nodes_to_remove, verbose=False):
+    G_ = G.copy()
+    if nodes_to_remove:
+        if verbose:
+            print(f"Removing {len(nodes_to_remove)} nodes from the graph.")
+        for node in nodes_to_remove:
+            G_.remove_node(node)
+    return G_
+
+def get_ODM_locations(G, hidden_locations, verbose=False):
+    if verbose:
+        print(f"Only focusing on non-hidden locations, removing hidden locations from computations (not graph)")
+    locations = list(set(G.nodes()) - set(hidden_locations))
+    if verbose:
+        print(f"Locations after removal: {len(locations)}")
+    return locations
+
+def create_odm_blueprint_and_road_info(G, locations, weight):
+    location_pairs = list(combinations(locations, 2))
+    odm_blueprint = np.full(len(location_pairs), 1)
+    v = np.array([G.get_edge_data(*edge)[weight] for edge in G.edges()])
+    road_names = [edge for edge in G.edges()]
+    return odm_blueprint, v, road_names, location_pairs
+
+def add_extra_paths_to_dict(shortest_paths_dict, extra_paths_dict, verbose=False):
+    if (extra_paths_dict is not None): 
+        if verbose:
+            print(f"Adding {len(extra_paths_dict)} extra paths to the shortest paths matrix.")
+        for key in extra_paths_dict:
+            if key not in shortest_paths_dict:
+                shortest_paths_dict[key] = []
+            for key_extra_path in extra_paths_dict[key]:
+                shortest_paths_dict[key].append(key_extra_path)
+    return shortest_paths_dict
 
 def p_matrix_from_undirected_shortest_paths(G, shortest_paths_dict):
     """
@@ -77,20 +114,13 @@ def v_P_odmbp_shortest_paths(G, removed_nodes=None, hidden_locations=None, extra
     G_ = G.copy()
     #Vector of locations (if needed)
     if removed_nodes:
-        if verbose:
-            print(f"Removing {len(removed_nodes)} nodes from the graph.")
-        for node in removed_nodes:
-            G_.remove_node(node)
-    if verbose:
-        print(f"Only focusing on non-hidden locations, removing hidden locations from computations (not graph)")
-    locations = list(set(G_.nodes()) - set(hidden_locations))
-    if verbose:
-        print(f"Locations after removal: {len(locations)}")
+        G_ = remove_nodes_from_graph(G_, removed_nodes, verbose)
+    #Only include non-hidden locations in the O-D matrix
+    locations = get_ODM_locations(G_, hidden_locations, verbose)
 
-    #Create a "blueprint" for O-D matrix
+    #Create a "blueprint" for O-D matrix, vector of road traffics, and road names
     location_pairs = list(combinations(locations, 2))
     odm_blueprint = np.full(len(location_pairs), 1)
-    
     #Vector of road traffics
     v = np.array([G_.get_edge_data(*edge)['weight'] for edge in G_.edges()])
     road_names = [edge for edge in G_.edges()]
@@ -118,13 +148,7 @@ def v_P_odmbp_shortest_paths(G, removed_nodes=None, hidden_locations=None, extra
     if verbose:
         print("Shortest paths computation completed.")
     if (extra_paths_dict is not None): #A possible checking of the type might be needed
-        if verbose:
-            print(f"Adding {len(extra_paths_dict)} extra paths to the shortest paths matrix.")
-        for key in extra_paths_dict:
-            if key not in shortest_paths_dict:
-                shortest_paths_dict[key] = []
-            for key_extra_path in extra_paths_dict[key]:
-                shortest_paths_dict[key].append(key_extra_path)
+        shortest_paths_dict = add_extra_paths_to_dict(shortest_paths_dict, extra_paths_dict, verbose)
 
     #P matrix
     if verbose:
@@ -141,83 +165,7 @@ def v_P_odmbp_shortest_paths(G, removed_nodes=None, hidden_locations=None, extra
     }
     return v, P, odm_blueprint, extra_info #v, P, odm, extra_info
 
-def v_P_odmbp_shortest_paths_depreciated(G, removed_nodes=None, hidden_locations=None, extra_paths_dict=None, round_P = False):
-    """
-    Given a graph + extra parameters, return v, P, a blueprint for the O-D matrix, and corresponding names/info.
-    The computation of P is based on the number of shortest paths between two locations, plus included extra paths. 
-    Removed nodes are not present during computation. Hidden locations are included in computing, but not in the output.
-    The function returns: road traffic (v) of size I x 1, an origin-destination matrix (ODM) blueprint of size J x 1,
-    a matrix P of size I x J, all ordered in correspondance to each other and an extra info tuple containing road names,
-    locations, location pairs, and the shortest paths dictionary.
-    For further use, v = P * odm is assumed, from which one can estimate the ODM matrix. This is why order matters.
-
-    Parameters:
-    G (networkx.Graph): The graph on which shortest paths are to be calculated.
-    removed_nodes (list, optional): Nodes to be removed from the graph before computation. Defaults to None.
-    hidden_locations (list, optional): Locations to be hidden in the final output. Defaults to None.
-    extra_paths_dict (dict, optional): Extra paths to be included in the shortest paths. Defaults to None.
-
-    Returns:
-    v (numpy.ndarray): Vector of road traffics.
-    P (numpy.ndarray): Matrix representing the shortest paths.
-    odm_blueprint (numpy.ndarray): Blueprint vector for an origin-destination matrix.
-    extra_info (dict): A dict containing road names, locations, location pairs, and the shortest paths dictionary.
-    """
-
-    G_ = G.copy()
-    #Vector of locations (if needed)
-    if removed_nodes:
-        for node in removed_nodes:
-            G_.remove_node(node)
-    locations = list(G_.nodes())
-
-    #Vector of location pairs
-    location_pairs = list(combinations(locations, 2))
-    #Create a "blueprint" for O-D matrix
-    odm_blueprint = np.full(len(location_pairs), 1) #0.1
-    
-    #Vector of road traffics
-    v = np.array([G_.get_edge_data(*edge)['weight'] for edge in G_.edges()])
-    road_names = [edge for edge in G_.edges()]
-
-    #Shortest + extra paths between all pairs of locations
-    shortest_paths_dict = {}
-    for i in range(len(locations)):
-        source = locations[i]
-        for j in range(i+1,len(locations)):
-            target = locations[j]
-            if source != target:
-                paths = nx.all_shortest_paths(G_, source=source, target=target)
-                shortest_paths_dict[(source, target)] = list(paths)  # Convert generator to list
-    if (extra_paths_dict is not None): #A possible checking of the type might be needed, e.g. if list, try create_paths_dict()
-        for key in extra_paths_dict:
-            if key not in shortest_paths_dict:
-                shortest_paths_dict[key] = []
-            for key_extra_path in extra_paths_dict[key]:
-                shortest_paths_dict[key].append(key_extra_path)
-
-    #P matrix
-    P = p_matrix_from_undirected_shortest_paths(G_, shortest_paths_dict)
-    if round_P:
-        P = np.around(P, 5)
-
-    #Post-compute removing hidden locations from location_pairs, P and odm_blueprint
-    if hidden_locations is not None:
-        for i in reversed(range(len(location_pairs))):  # Iterate in reverse order to avoid index errors
-            if any(loc in location_pairs[i] for loc in hidden_locations):
-                odm_blueprint = np.delete(odm_blueprint, i) #Delete the i-th row from the vector
-                del location_pairs[i]
-                P = np.delete(P, i, axis=1) #Delete the i-th column from the matrix
-    
-    extra_info = {
-        "road_names": road_names,
-        "locations": locations,
-        "location_pairs": location_pairs,
-        "shortest_paths_dict": shortest_paths_dict
-    }
-    return v, P, odm_blueprint, extra_info #v, P, odm, extra_info
-
-def v_P_odmbp_shortest_times(G, max_selected_paths = 3, time_threshold = None, removed_nodes=None, hidden_locations=None, extra_paths_dict=None, round_P = False):
+def v_P_odmbp_shortest_times(G, max_selected_paths=3, time_threshold=None, removed_nodes=None, hidden_locations=None, extra_paths_dict=None, round_P = False, verbose=False):
     """
     Given a graph + parameters, compute the shortest time paths between locations, returning v, P, and other info.
 
@@ -244,7 +192,68 @@ def v_P_odmbp_shortest_times(G, max_selected_paths = 3, time_threshold = None, r
     odm_blueprint (numpy.ndarray): Blueprint vector for an origin-destination matrix.
     extra_info (dict): A dict containing road names, locations, location pairs, and the shortest paths (by time) dictionary.
     """
-    pass
+
+    if time_threshold is not None:
+        warnings.warn("The time_threshold parameter is not yet implemented, using the max_selected_paths instead.")
+        #TODO
+
+    if verbose:
+        print("Starting P-matrix creation - using time as a shortest path indicator.")
+    G_ = G.copy()
+    #Vector of locations (if needed)
+    if removed_nodes:
+        G_ = remove_nodes_from_graph(G_, removed_nodes, verbose)
+    #Only include non-hidden locations in the O-D matrix
+    locations = get_ODM_locations(G_, hidden_locations, verbose)
+
+    #Create a "blueprint" for O-D matrix
+    location_pairs = list(combinations(locations, 2))
+    odm_blueprint = np.full(len(location_pairs), 1)
+    
+    #Vector of road traffics
+    v = np.array([G_.get_edge_data(*edge)['time'] for edge in G_.edges()])
+    road_names = [edge for edge in G_.edges()]
+
+    #Shortest + extra paths between all pairs of locations
+    if verbose:
+        process = 0
+        max_process = len(locations) * (len(locations) - 1) / 2
+        limits = [int(max_process * i / 10) for i in range(1, 11)]
+        if verbose:
+            print(f"Starting computation of shortest paths between {len(locations)} locations.")
+    #num_selected_paths = max_selected_paths
+    shortest_paths_dict = {}
+    for i in range(len(locations)):
+        source = locations[i]
+        for j in range(i+1,len(locations)):
+            target = locations[j]
+            #TODO: Account for the time_threshold
+            if source != target: #Should theoretically not happen
+                paths = list(islice(nx.shortest_simple_paths(G_, source=source, target=target, weight='time'), max_selected_paths))
+                shortest_paths_dict[(source, target)] = paths
+            if verbose:
+                process += 1
+                if process in limits:
+                    if verbose:
+                        print(f"{int(process*100/max_process)}% completed.")
+    if verbose:
+        print("Shortest paths computation completed.")
+    if (extra_paths_dict is not None): #A possible checking of the type might be needed
+        shortest_paths_dict = add_extra_paths_to_dict(shortest_paths_dict, extra_paths_dict, verbose)
+    #P matrix
+    if verbose:
+        print("Constructing the P matrix from the found shortest paths.")
+    P = p_matrix_from_undirected_shortest_paths(G_, shortest_paths_dict)
+    if round_P:
+        P = np.around(P, 5)
+
+    extra_info = {
+        "road_names": road_names,
+        "locations": locations,
+        "location_pairs": location_pairs,
+        "shortest_paths_dict": shortest_paths_dict
+    }
+    return v, P, odm_blueprint, extra_info #v, P, odm, extra_info
 
 def get_all_zero_rows(matrix):
     #Rows are selected based on the condition: not containing any non-zero elements
