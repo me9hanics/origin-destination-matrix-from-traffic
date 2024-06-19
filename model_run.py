@@ -214,8 +214,8 @@ def construct_model_args(model_name, flow_traffic_data = None, tessellation = No
                 if 'weight' not in network.edges[edge]:
                     raise ValueError('Error: Network must have edge weights, representing traffic data.')
                 if 'time' not in network.edges[edge] and P_algorithm == 'shortest_time':
-                    warnings.warn('Warning: The network edges do not have a time attribute, but P_algorithm \
-                                  is set to "shortest_time". Each value will be computed if possible or set to 50.')
+                    warnings.warn('Warning: The network edges do not have a time attribute, but P_algorithm is set to\
+                                  "shortest_time". Each value will be computed if possible or set to time with 50 km/h.')
             all_nodes_ignored = True
             for node in network.nodes:
                 if 'ignore' not in network.nodes[node]:
@@ -252,9 +252,23 @@ def construct_model_args(model_name, flow_traffic_data = None, tessellation = No
             #Check if the network has time attribute in the edges
             missing_time_edges = [edge for edge in network.edges if 'time' not in network.edges[edge]]
             if len(missing_time_edges) > 0:
-                print("No time attribute in the network edges, try adding time attribute")
-                #TODO
-            pass
+                print("No time attribute in some network edges, try adding time attribute")
+                for edge in missing_time_edges:
+                    speed = network.edges[edge]['speed'] if 'speed' in network.edges[edge] else 50
+                    if 'distance' in network.edges[edge]:
+                        network.edges[edge]['time'] = network.edges[edge]['distance'] / speed
+                    else:
+                        if 'geometry' in network.edges[edge]:
+                            geometry = network.edges[edge]['geometry'] #Assuming LineString or MultiLineString
+                            if geometry.type == 'LineString':
+                                network.edges[edge]['distance'] = geometry.length
+                            elif geometry.type == 'MultiLineString':
+                                network.edges[edge]['distance'] = sum([line.length for line in geometry])
+                            else:
+                                raise ValueError('Error: No time or distance of road, and geometry type not recognized.')
+                            network.edges[edge]['time'] = network.edges[edge]['distance'] / speed
+                        else:
+                            raise ValueError('Error: No time or distance of road, and no geometry attribute.')
 
         #ODM computation parameters
         if initial_odm_df is None:
@@ -504,7 +518,6 @@ def run_bell_model(bell_type, flow_traffic_data, tessellation=None, initial_odm_
         raise ValueError('Error: Currently, only "shortest_path" and "shortest_time" are implemented for P_algorithm.')
     if P_algorithm == 'shortest_time':
         #TODO
-        raise ValueError('Error: Not yet implemented to compute the P matrix based on shortest time paths.')
         max_selected_paths = 3
         time_threshold = None
         v, P, odm_blueprint, extra = helper_functions.v_P_odmbp_shortest_times(network,
@@ -519,11 +532,11 @@ def run_bell_model(bell_type, flow_traffic_data, tessellation=None, initial_odm_
                                                                                hidden_locations = hidden_locations,
                                                                                extra_paths_dict = extra_paths,
                                                                                verbose=True)
-        print(f"Computed the P matrix based on shortest paths. Size of road traffic vector: {v.shape[0]},\
-              size of the ODM vector: {odm_blueprint.shape[0]}.")
-    
+    print(f"Computed the P matrix based on {P_algorithm}. Size of road traffic vector: {v.shape[0]},\
+                size of the ODM vector: {odm_blueprint.shape[0]}.")
+
     #Something to consider: reducing the P matrix to maximum rank size
-    print("Removing roads from the P matrix that are full of 0 values (unused between locations).")
+    print("Removing roads from the P matrix that are full of 0 values (unused between O-D locations).")
     P_,v_ = helper_functions.remove_full_zero_rows(P,v)
     print(f"Removed {P.shape[0] - P_.shape[0]} rows from the P matrix and from the v vector.")
     P = P_; v = v_
