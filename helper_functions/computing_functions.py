@@ -243,6 +243,7 @@ def v_P_odmbp_shortest_times(G, max_selected_paths=3, time_threshold=None, remov
     #P matrix
     if verbose:
         print("Constructing the P matrix from the found shortest paths.")
+    #TODO Change P_matrix_from_undirected_shortest_paths to something accounting for time (lower time = higher weight)
     P = p_matrix_from_undirected_shortest_paths(G_, shortest_paths_dict)
     if round_P:
         P = np.around(P, 5)
