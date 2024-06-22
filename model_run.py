@@ -214,8 +214,12 @@ def construct_model_args(model_name, flow_traffic_data = None, tessellation = No
                 if 'weight' not in network.edges[edge]:
                     raise ValueError('Error: Network must have edge weights, representing traffic data.')
                 if 'time' not in network.edges[edge] and P_algorithm == 'shortest_time':
-                    warnings.warn('Warning: The network edges do not have a time attribute, but P_algorithm is set to\
+                    if 'time (min)' in network.edges[edge]:
+                        network.edges[edge]['time'] = network.edges[edge]['time (min)']
+                    else:
+                        warnings.warn('Warning: The network edges do not have a time attribute, but P_algorithm is set to\
                                   "shortest_time". Each value will be computed if possible or set to time with 50 km/h.')
+
             all_nodes_ignored = True
             for node in network.nodes:
                 if 'ignore' not in network.nodes[node]:
@@ -637,6 +641,9 @@ def run_model(model_name, flow_traffic_data=None, tessellation=None, output_file
         print("Running the Bell L1 model.")
         odm_df = run_bell_model('bell_L1', flow_traffic_data, tessellation, **arg_dict)
 
+    if 'return_before_optimization' in kwargs:
+        if kwargs['return_before_optimization']:
+            return odm_df
     odm_df = (odm_df.astype({'flow': 'int'})).reset_index(drop=True)
     #Save the output, return the ODM
     print("Saving the output to a file.")
