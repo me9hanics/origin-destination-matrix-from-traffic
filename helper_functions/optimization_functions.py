@@ -120,8 +120,8 @@ def F_Bell_L1_approximation_gradient(odm_vector, q, P_modified_loss, v_modified_
     loss_gradient = np.zeros_like(odm_vector)
     for i in range(len(v_modified_loss)): #All dependent equations, included in loss
         error_i = v_modified_loss[i]- P_modified_loss[i, :] @ odm_vector
-        loss_i_derivative =  k * error_i * np.power(np.abs(error_i), k-1)
-        loss_gradient += P_modified_loss[i, :] * loss_i_derivative #Each column of P is an odm entry (so this is the vector already)
+        loss_i_derivative =  k * np.power(error_i, k-1)*np.sign(error_i) #This is continuous. Sign is for the derivative of abs
+        loss_gradient -= P_modified_loss[i, :] * loss_i_derivative #Each column of P is an odm entry (so this is the vector already)
     return F_Bell_gradient(odm_vector, q) - c*loss_gradient
 
 def F_Bell_L1_approximation_optimize_gradient(odm_vector, q, P_modified_loss, v_modified_loss, c=0.05, k = 10000/9999):
