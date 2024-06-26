@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 import networkx as nx
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
@@ -508,33 +509,47 @@ def odm_location_names_df_to_odm_2d_symmetric(odm_df, places_sorted=None):
         odm_2d[places_sorted.index(destination), places_sorted.index(origin)] = row['flow']
     return odm_2d
 
-def sort_odm_loc_names_df(odm_df, ordered_o_d_tuple_list, return_ordering=False):
-    #Column with the index of each (origin, destination) pair in the ordered list
-    #origins = np.array(odm_df['origin'])
-    #destinations = np.array(odm_df['destination'])
-    #sort_keys = np.array([None]*len(origins))
-    odm_df['sort_key'] = None
+def sort_odm_loc_names_df(odm_df, ordered_o_d_tuple_list, return_ordering=False, include_extras=True, try_reverse=True, drop_not_in_reverse=True):
+    """
+    Sorts the odm_df dataframe based on the order of (origin, destination) pairs in ordered_o_d_tuple_list.
+    If include_extras is True, elements not found in ordered_o_d_tuple_list are included at the end of the dataframe.
+    If include_extras is False, these elements are excluded from the returned dataframe.
+    """
+    if drop_not_in_reverse and not try_reverse:
+        warnings.warn("Cannot drop elements not found in the reverse if try_reverse is False.")
+    if drop_not_in_reverse and not include_extras:
+        raise ValueError("Cannot drop elements not found in the reverse if include_extras is False.")
+
+    #Assign initial orderingkeys
+    odm_df['sort_key'] = np.nan
     for i, (o, d) in enumerate(ordered_o_d_tuple_list):
         odm_df.loc[(odm_df['origin'] == o) & (odm_df['destination'] == d), 'sort_key'] = i
-    #odm_df['sort_key'] = [ordered_o_d_tuple_list.index((o, d)) for o, d in zip(odm_df['origin'], odm_df['destination'])]
-    if odm_df['sort_key'].isnull().sum() > 0:
-        print("Missing values in the sort_key column (ordering of original dataframe).\n\
-              ASSUMING symmetric ODM - filling the missing values with the reverse (destination, origin).\n\
-              All other missing values will be removed.")
-        for i, (o, d) in enumerate(ordered_o_d_tuple_list):
-            odm_df.loc[(odm_df['origin'] == d) & (odm_df['destination'] == o) & (odm_df['sort_key'].isnull()), 'sort_key'] = i
-        odm_df = odm_df[odm_df['sort_key'].notnull()]
-    
-    ordering = np.array(odm_df['sort_key'].values).astype(int)
-    sorted_df = odm_df.sort_values(by='sort_key')
-    
-    sorted_df = sorted_df.drop(columns='sort_key')
-    
+
+    #Handle missing sort keys
+    if include_extras:
+        if try_reverse:
+            #Try fill the missing values with the reverse (destination, origin)
+            for i, (o, d) in enumerate(ordered_o_d_tuple_list):
+                odm_df.loc[odm_df['sort_key'].isnull(), 'sort_key'] = pd.Series(range(len(ordered_o_d_tuple_list), len(ordered_o_d_tuple_list) + odm_df['sort_key'].isnull().sum()))
+            if drop_not_in_reverse:
+                #Exclude rows without a sort key
+                odm_df = odm_df.dropna(subset=['sort_key'])
+
+        # Assign new sort keys to any remaining rows without one
+        max_sort_key = len(ordered_o_d_tuple_list)
+        odm_df.loc[odm_df['sort_key'].isnull(), 'sort_key'] = range(max_sort_key, max_sort_key + odm_df['sort_key'].isnull().sum())
+    else:
+        # Exclude rows without a sort key
+        odm_df = odm_df.dropna(subset=['sort_key'])
+
+    #Final cleanup
+    odm_df['sort_key'] = odm_df['sort_key'].astype(int)
+    sorted_df = odm_df.sort_values(by='sort_key').drop(columns='sort_key')
+
     if return_ordering:
-        return sorted_df, ordering
+        return sorted_df, np.array(sorted_df['sort_key'].values)
     else:
         return sorted_df
-
 
 ###################### Plotting, evaluation and other functions ######################
 
