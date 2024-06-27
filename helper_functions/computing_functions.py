@@ -509,7 +509,7 @@ def odm_location_names_df_to_odm_2d_symmetric(odm_df, places_sorted=None):
         odm_2d[places_sorted.index(destination), places_sorted.index(origin)] = row['flow']
     return odm_2d
 
-def sort_odm_loc_names_df(odm_df, ordered_o_d_tuple_list, return_ordering=False, include_extras=True, try_reverse=True, drop_not_in_reverse=True):
+def sort_odm_loc_names_df(odm_df, ordered_o_d_tuple_list, return_ordering=False, include_extras=True, try_reverse=True, drop_not_in_reverse=False):
     """
     Sorts the odm_df dataframe based on the order of (origin, destination) pairs in ordered_o_d_tuple_list.
     If include_extras is True, elements not found in ordered_o_d_tuple_list are included at the end of the dataframe.
@@ -518,7 +518,7 @@ def sort_odm_loc_names_df(odm_df, ordered_o_d_tuple_list, return_ordering=False,
     if drop_not_in_reverse and not try_reverse:
         warnings.warn("Cannot drop elements not found in the reverse if try_reverse is False.")
     if drop_not_in_reverse and not include_extras:
-        raise ValueError("Cannot drop elements not found in the reverse if include_extras is False.")
+        warnings.warn("Cannot drop elements not found in the reverse if include_extras is False.")
 
     #Assign initial orderingkeys
     odm_df['sort_key'] = np.nan
@@ -530,24 +530,23 @@ def sort_odm_loc_names_df(odm_df, ordered_o_d_tuple_list, return_ordering=False,
         if try_reverse:
             #Try fill the missing values with the reverse (destination, origin)
             for i, (o, d) in enumerate(ordered_o_d_tuple_list):
-                odm_df.loc[odm_df['sort_key'].isnull(), 'sort_key'] = pd.Series(range(len(ordered_o_d_tuple_list), len(ordered_o_d_tuple_list) + odm_df['sort_key'].isnull().sum()))
+                odm_df.loc[(odm_df['origin'] == d) & (odm_df['destination'] == o), 'sort_key'] = i
             if drop_not_in_reverse:
                 #Exclude rows without a sort key
                 odm_df = odm_df.dropna(subset=['sort_key'])
 
-        # Assign new sort keys to any remaining rows without one
-        max_sort_key = len(ordered_o_d_tuple_list)
-        odm_df.loc[odm_df['sort_key'].isnull(), 'sort_key'] = range(max_sort_key, max_sort_key + odm_df['sort_key'].isnull().sum())
     else:
         # Exclude rows without a sort key
         odm_df = odm_df.dropna(subset=['sort_key'])
 
     #Final cleanup
+    # Ensure that only valid sort_key values are converted to integers, and missing values are kept as NaN
+    ordering = [int(i) for i in odm_df['sort_key'] if not np.isnan(i)]
     odm_df['sort_key'] = odm_df['sort_key'].astype(int)
     sorted_df = odm_df.sort_values(by='sort_key').drop(columns='sort_key')
 
     if return_ordering:
-        return sorted_df, np.array(sorted_df['sort_key'].values)
+        return sorted_df, ordering
     else:
         return sorted_df
 
