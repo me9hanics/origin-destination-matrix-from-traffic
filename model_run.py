@@ -152,6 +152,7 @@ def construct_model_args(model_name, flow_traffic_data = None, tessellation = No
         upper_bound = kwargs.get('upper_bound', 100000)
         network = kwargs.get('network', None)
         hidden_locations = kwargs.get('hidden_locations', None)
+        removed_nodes = kwargs.get('removed_nodes', None)
         find_locations = kwargs.get('find_locations', None)
         P_algorithm = kwargs.get('P_algorithm', 'shortest_path')
         extra_paths = kwargs.get('extra_paths', None)
@@ -241,7 +242,8 @@ def construct_model_args(model_name, flow_traffic_data = None, tessellation = No
                 #TODO Check if this works as intended
                 hidden_locations = list(set(hidden_locations
                                             + [node for node in network.nodes if network.nodes[node]['ignore'] == True]))
-                
+            #TODO Do the same for removed_nodes
+
             if find_locations is not None:
                 warnings.warn('Warning: find_locations parameter may not be used, because a network is given.')
         
@@ -335,8 +337,9 @@ def construct_model_args(model_name, flow_traffic_data = None, tessellation = No
         initial_odm_df = initial_odm_df.copy()
         model_params = {'initial_odm_df': initial_odm_df, 'network': network, 'q': q, 'c': c,
                         'upper_bound': upper_bound,'hidden_locations': hidden_locations,
-                        'find_locations': find_locations, 'P_algorithm': P_algorithm,
-                        'extra_paths': extra_paths, 'initial_odm_vector': initial_odm_vector,
+                        'removed_nodes': removed_nodes, 'find_locations': find_locations,
+                        'P_algorithm': P_algorithm, 'extra_paths': extra_paths,
+                        'initial_odm_vector': initial_odm_vector,
                         'return_before_optimization': return_before_optimization}
         
         return flow_traffic_data, tessellation, model_params
@@ -411,8 +414,8 @@ def run_gravity_model(flows_df, tessellation, gravity_type="singly constrained",
 
 def run_bell_model(bell_type, flow_traffic_data, tessellation=None, initial_odm_df = None,
                     q=None, c=0.05, upper_bound=100000, network=None, hidden_locations=None,
-                    find_locations=None, P_algorithm='shortest_path', extra_paths=None,
-                    initial_odm_vector = None, return_before_optimization=False):
+                    removed_nodes=None, find_locations=None, P_algorithm='shortest_path',
+                    extra_paths=None, initial_odm_vector = None, return_before_optimization=False):
     """
     Run the Bell model with given data and parameters.
     
@@ -528,11 +531,13 @@ def run_bell_model(bell_type, flow_traffic_data, tessellation=None, initial_odm_
                                                                                 max_selected_paths=max_selected_paths,
                                                                                 time_threshold=time_threshold,
                                                                                 hidden_locations = hidden_locations,
+                                                                                removed_nodes=removed_nodes,
                                                                                 extra_paths_dict = extra_paths,
                                                                                 verbose=True)
     if P_algorithm == 'shortest_path':
         #Compute the P matrix based on shortest paths
         v, P, odm_blueprint, extra = helper_functions.v_P_odmbp_shortest_paths(network,
+                                                                               removed_nodes=removed_nodes,
                                                                                hidden_locations = hidden_locations,
                                                                                extra_paths_dict = extra_paths,
                                                                                verbose=True)
@@ -555,6 +560,7 @@ def run_bell_model(bell_type, flow_traffic_data, tessellation=None, initial_odm_
     print("Synchronizing the initial ODM with the blueprint ODM.")
     initial_odm_sorted, order = helper_functions.sort_odm_loc_names_df(initial_odm_df, extra['location_pairs'], return_ordering=True)
     odm_initial = np.array(initial_odm_sorted['flow'])
+    print(initial_odm_sorted.shape, odm_initial.shape, q.shape, len(order), np.max(order), np.min(order))
     q = q[order]
     if return_before_optimization:
         return (v, P, odm_blueprint, extra, q, initial_odm_sorted, order, P_dep, v_dep, P_indep, v_indep)
