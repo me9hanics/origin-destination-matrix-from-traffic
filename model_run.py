@@ -210,6 +210,7 @@ def construct_model_args(model_name, flow_traffic_data = None, tessellation = No
             if flow_traffic_data is None:
                 raise ValueError('Error: If a network is not explicitly given, the Bell model\
                                 requires traffic data given by flow_traffic_data.')
+                # TODO: Do this without using node geographical locations as names (much less issues)
         else:
             for edge in network.edges:
                 if 'weight' not in network.edges[edge]:
